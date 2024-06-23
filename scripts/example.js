@@ -1,6 +1,6 @@
 import { world } from "@minecraft/server";
 
-import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./UI";
+import { ModalFormWrapper } from "./ServerForm-Wrapper";
 
 const modalForm = new ModalFormWrapper()
 .title("title")
@@ -39,20 +39,8 @@ const modalForm = new ModalFormWrapper()
     event.player.sendMessage(event.getDropdown("dropdown"));
 });
 
-const messageForm = new MessageFormWrapper()
-.title("titleText")
-.body("1", "2", "3")
-.button1("1")
-.button2("2")
-.onPush(() => true, event => {
-    event.player.sendMessage(event.button.name);
-})
-.onCancel("Any", event => {
-    event.reopen();
-});
-
 world.afterEvents.itemUse.subscribe(event => {
     if (event.itemStack.type.id !== "minecraft:stick") return;
     
-    messageForm.open(event.source);
+    modalForm.open(event.source);
 });

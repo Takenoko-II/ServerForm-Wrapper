@@ -2,7 +2,7 @@
 `@minecraft/server-ui`が提供するフォーム作成用APIをより扱いやすいものにしたライブラリです。
 
 ## 導入
-[Releases]()からダウンロードした.zipファイル内の`scripts/UI.js`と`scripts/UI.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
+[Releases]()からダウンロードした.zipファイル内の`scripts/ServerForm-Wrapper.js`と`scripts/ServerForm-Wrapper.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
 <br>双方を同一のフォルダ内に置くことを推奨します。
 
 ## 使用法
@@ -11,7 +11,7 @@
 例:
 ```js
 // パスはファイルを置いた場所に合わせてください
-import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./UI";
+import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./ServerForm-Wrapper";
 ```
 
 ### ActionFormWrapper
@@ -19,7 +19,7 @@ import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./UI";
 ```js
 import { world } from "@minecraft/server";
 
-import { ActionFormWrapper } from "./UI";
+import { ActionFormWrapper } from "./ServerForm-Wrapper";
 
 const form = new ActionFormWrapper()
 .title("フォームのタイトル")
@@ -53,7 +53,7 @@ world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
 ```js
 import { world } from "@minecraft/server";
 
-import { ModalFormWrapper } from "./UI";
+import { ModalFormWrapper } from "./ServerForm-Wrapper";
 
 const form = new ModalFormWrapper()
 .title("フォームのタイトル")
@@ -105,7 +105,7 @@ world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
 ```js
 import { world } from "@minecraft/server";
 
-import { MessageFormWrapper } from "./UI";
+import { MessageFormWrapper } from "./ServerForm-Wrapper";
 
 const form = new MessageFormWrapper()
 .title("フォームのタイトル")
@@ -131,4 +131,91 @@ world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
 });
 ```
 
-### 自己参照機能
+### 自己参照
+フォーム内の要素(ex: ボタン, スライダー, トグル)に関する情報を取得することができます。
+```js
+import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper, ServerFormElementPredicates } from "./ServerForm-Wrapper";
+
+const actionForm = new ActionFormWrapper()
+.title("title")
+.body("body")
+.button("button1", "textures/items/apple", player => {
+    const fooButtons = actionForm.buttons.getByPredicate(button => button.name.startsWith("foo")); // 名前が"foo"で始まるボタンをすべて取得
+    player.sendMessage(fooButtons.length.toString()); // 2
+});
+.button("foobar")
+.button("foobaz");
+
+const modalForm = new ModalFormWrapper()
+.title("title")
+.slider({
+    id: "hoge",
+    label: "すらいだー1",
+    range: { min: 0, max: 10 },
+    step: 1,
+    defaultValue: 5
+})
+.slider({
+    id: "fuga",
+    label: "すらいだー2",
+    range: { min: 11, max: 20 },
+    step: 1,
+    defaultValue: 15
+})
+.onSubmit(event => {
+    const sliderHoge = modalForm.elements.getSlider("hoge"); // idが"hoge"のスライダーに関する情報を取得
+    const sliderFuga = modalForm.elements.getSlider("fuga"); // idが"fuga"のスライダーに関する情報を取得
+    const hoge = event.getSlider("hoge"); // 入力された値
+    const fuga = event.getSlider("fuga");
+
+    event.player.sendMessage(`${sliderHoge.label}は${hoge}です`); // スライダーのラベルを取得
+    event.player.sendMessage(`${sliderFuga.label}は${fuga}です`);
+});
+
+const messageForm = new MessageFormWrapper()
+.title("title")
+.body("body")
+.button1("foo")
+.button2("bar")
+.onPush(() => true, event => {
+    const anotherButton = messageForm.buttons.getByPredicate(button => button.name !== event.button.name);
+    event.player.sendMessage(anotherButton.name); // 押されていないほうのボタンの名前を取得
+});
+```
+
+### その他
+`ServerFormElementPredicates`を使用して、取得した要素の種類を確かめることができます。
+```js
+import { ModalFormWrapper, ServerFormElementPredicates } from "@minecraft/server";
+
+const form = new ModalFormWrapper()
+.slider({
+    id: "slider",
+    label: "label",
+    range: { min: 0, max: 100 },
+    step: 1,
+    defaultValue: 0
+})
+.textField({
+    id: "textField",
+    label: "label",
+    placeHolder: "placeHolder",
+    defaultValue: "default"
+})
+.onSubmit(event => {
+    const textFields = form.elements.getByPredicate(ServerFormElementPredicates.isTextField); // テキストフィールド(の配列)型
+});
+```
+
+オーバーロードなど詳細な情報については.d.tsを参照してください。
+
+## 動作を確認したバージョン
+- 1.21.0
+
+## ライセンス
+ServerForm-Wrapperは[Mitライセンス](https://en.wikipedia.org/wiki/MIT_License)のもとでリリースされています。
+
+## 作成者
+- [GitHub](https://github.com/Takenoko-II)
+- [Twitter](https://twitter.com/Takenoko_4096)
+- Discord: takenoko_4096 | たけのこII#1119
