@@ -101,7 +101,7 @@ interface Pushable {
      * @param callbackFn コールバック関数
      * @returns `this`
      */
-    onPush(predicate: (button: Button) => boolean, callbackFn: (player: ServerFormButtonPushEvent) => void): Pushable;
+    onPush(predicate: (button: Button) => boolean, callbackFn: (event: ServerFormButtonPushEvent) => void): Pushable;
 }
 
 /**
@@ -118,7 +118,7 @@ interface Submittable {
      * フォームの入力が送信された際に発火するイベントのコールバックを登録します。
      * @param callbackFn コールバック関数
      */
-    onSubmit(callbackFn: (arg: ModalFormSubmitEvent) => void): Submittable;
+    onSubmit(callbackFn: (event: ModalFormSubmitEvent) => void): Submittable;
 }
 
 /**
@@ -439,7 +439,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param predicate ボタンの条件
      * @param callbackFn コールバック関数
      */
-    onPush(predicate: (button: Button) => void, callbackFn: (player: ServerFormButtonPushEvent) => void): ActionFormWrapper;
+    onPush(predicate: (button: Button) => void, callbackFn: (event: ServerFormButtonPushEvent) => void): ActionFormWrapper;
 
     /**
      * フォームのボタンの定義情報
@@ -525,7 +525,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * フォームの入力が送信された際に発火するイベントのコールバックを登録します。
      * @param callbackFn コールバック関数
      */
-    onSubmit(callbackFn: (arg: ModalFormSubmitEvent) => void): ModalFormWrapper;
+    onSubmit(callbackFn: (event: ModalFormSubmitEvent) => void): ModalFormWrapper;
 
     /**
      * フォームの要素の定義情報
@@ -610,7 +610,7 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param predicate ボタンの条件
      * @param callbackFn コールバック関数
      */
-    onPush(predicate: (button: Button) => boolean, callbackFn: (player: ServerFormButtonPushEvent) => void): MessageFormWrapper;
+    onPush(predicate: (button: Button) => boolean, callbackFn: (event: ServerFormButtonPushEvent) => void): MessageFormWrapper;
 
     /**
      * フォームのボタンの定義情報
