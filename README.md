@@ -7,6 +7,9 @@
 
 ## 使用法
 
+### manifest.json
+`@minecraft/server-ui`の`1.2.0-beta`以上が必要になります。
+
 ### import
 例:
 ```js
