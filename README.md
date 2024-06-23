@@ -2,7 +2,7 @@
 `@minecraft/server-ui`が提供するフォーム作成用APIをより扱いやすいものにしたライブラリです。
 
 ## 導入
-[Releases](https://github.com/Takenoko-II/ServerForm-Wrapper/releases/tag/v1.0.1)からダウンロードした.zipファイル内の`scripts/ServerForm-Wrapper.js`と`scripts/ServerForm-Wrapper.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
+[Releases](https://github.com/Takenoko-II/ServerForm-Wrapper/releases/tag/v1.0.2)からダウンロードした.zipファイル内の`scripts/ServerForm-Wrapper.js`と`scripts/ServerForm-Wrapper.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
 <br>双方を同一のフォルダ内に置くことを推奨します。
 
 ## 使用法

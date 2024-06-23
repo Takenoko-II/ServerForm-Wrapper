@@ -8,15 +8,15 @@ import { Player, system } from "@minecraft/server";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 
 /**
- * @typedef {import("./UI").ServerFormCancelEvent} ServerFormCancelEvent
- * @typedef {import("./UI").ServerFormButtonPushEvent} ServerFormButtonPushEvent
- * @typedef {import("./UI").ModalFormSubmitEvent} ModalFormSubmitEvent
- * @typedef {import("./UI").Button} Button
- * @typedef {import("./UI").ModalFormElement} ModalFormElement
- * @typedef {import("./UI").ModalFormToggle} ModalFormToggle
- * @typedef {import("./UI").ModalFormSlider} ModalFormSlider
- * @typedef {import("./UI").ModalFormTextField} ModalFormTextField
- * @typedef {import("./UI").ModalFormDropdown} ModalFormDropdown
+ * @typedef {import("./ServerForm-Wrapper").ServerFormCancelEvent} ServerFormCancelEvent
+ * @typedef {import("./ServerForm-Wrapper").ServerFormButtonPushEvent} ServerFormButtonPushEvent
+ * @typedef {import("./ServerForm-Wrapper").ModalFormSubmitEvent} ModalFormSubmitEvent
+ * @typedef {import("./ServerForm-Wrapper").Button} Button
+ * @typedef {import("./ServerForm-Wrapper").ModalFormElement} ModalFormElement
+ * @typedef {import("./ServerForm-Wrapper").ModalFormToggle} ModalFormToggle
+ * @typedef {import("./ServerForm-Wrapper").ModalFormSlider} ModalFormSlider
+ * @typedef {import("./ServerForm-Wrapper").ModalFormTextField} ModalFormTextField
+ * @typedef {import("./ServerForm-Wrapper").ModalFormDropdown} ModalFormDropdown
  */
 
 /**
