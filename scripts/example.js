@@ -1,8 +1,8 @@
 import { world } from "@minecraft/server";
 
-import { ActionFormWrapper, MessageFormWrapper, ModalFormWrapper, ServerFormElementPredicates } from "./UI";
+import { ModalFormWrapper } from "./ServerForm-Wrapper";
 
-const form = new ModalFormWrapper()
+const modalForm = new ModalFormWrapper()
 .title("title")
 .toggle({
     id: "toggle",
@@ -30,7 +30,6 @@ const form = new ModalFormWrapper()
 })
 .onCancel("UserClosed", event => {
     event.reopen();
-    event.player.sendMessage(form.elements.getSlider("slider").label);
 })
 .submitButtonName("submit")
 .onSubmit(event => {
@@ -38,24 +37,10 @@ const form = new ModalFormWrapper()
     event.player.sendMessage(String(event.getSlider("slider")));
     event.player.sendMessage(event.getTextField("textField"));
     event.player.sendMessage(event.getDropdown("dropdown"));
-    event.player.sendMessage(String(event.getAll()));
-});
-
-const mes = new MessageFormWrapper()
-.title("titleText")
-.body("1", "2", "3")
-.button1("1", ["tag"])
-.button2("2", ["tag"])
-.onPush(b => b.tags.includes("tag"), e => {
-    e.player.sendMessage(e.button.name);
-})
-.onCancel("Any", e => {
-    e.reopen();
-    mes.buttons.getByPredicate(b => b.name.startsWith("1")).name += "1";
 });
 
 world.afterEvents.itemUse.subscribe(event => {
     if (event.itemStack.type.id !== "minecraft:stick") return;
     
-    mes.open(event.source);
+    modalForm.open(event.source);
 });
