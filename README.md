@@ -2,7 +2,7 @@
 `@minecraft/server-ui`が提供するフォーム作成用APIをより扱いやすいものにしたライブラリです。
 
 ## 導入
-[Releases](https://github.com/Takenoko-II/ServerForm-Wrapper/releases/tag/v1.0.2)からダウンロードした.zipファイル内の`scripts/ServerForm-Wrapper.js`と`scripts/ServerForm-Wrapper.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
+[Releases](https://github.com/Takenoko-II/ServerForm-Wrapper/releases/tag/v1.0.2)からダウンロードした.zipファイル内の`scripts/UI.js`と`scripts/UI.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
 <br>双方を同一のフォルダ内に置くことを推奨します。
 
 ## 使用法
@@ -14,7 +14,7 @@
 例:
 ```js
 // パスはファイルを置いた場所に合わせてください
-import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./ServerForm-Wrapper";
+import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./UI";
 ```
 
 ### ActionFormWrapper
@@ -22,7 +22,7 @@ import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper } from "./Serve
 ```js
 import { world } from "@minecraft/server";
 
-import { ActionFormWrapper } from "./ServerForm-Wrapper";
+import { ActionFormWrapper } from "./UI";
 
 const form = new ActionFormWrapper()
 .title("フォームのタイトル")
@@ -137,7 +137,7 @@ world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
 ### 自己参照
 フォーム内の要素(ex: ボタン, スライダー, トグル)に関する情報を取得することができます。
 ```js
-import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper, ServerFormElementPredicates } from "./ServerForm-Wrapper";
+import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper, ServerFormElementPredicates } from "./UI";
 
 const actionForm = new ActionFormWrapper()
 .title("title")
