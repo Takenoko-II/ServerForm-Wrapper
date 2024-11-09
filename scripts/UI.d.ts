@@ -7,6 +7,10 @@ import { NumberRange } from "@minecraft/common";
 
 import { Player } from "@minecraft/server";
 
+export class ServerFormError extends Error {
+    readonly cause: unknown;
+}
+
 /**
  * フォームが閉じられる要因
  */
@@ -85,6 +89,13 @@ export class ServerFormWrapper<T extends ServerFormWrapper<T>> {
     onCancel(value: "Any" | "UserBusy" | "UserClosed", callbackFn: (event: ServerFormCancelEvent) => void): T;
 
     /**
+     * フォームが例外を捕捉した際に呼び出されるコールバック関数を登録します。
+     * @param callbackFn コールバック関数
+     * @returns `this`
+     */
+    catch(callbackFn: (event: ServerFormCatchErrorEvent) => void): T;
+
+    /**
      * フォームを表示します。
      * @param player プレイヤー
      */
@@ -112,7 +123,7 @@ interface Submittable {
      * 送信ボタンの名前を設定します。
      * @param name ボタンの名前
      */
-    submitButton(name: string): Submittable;
+    submitButtonName(name: string): Submittable;
 
     /**
      * フォームの入力が送信された際に発火するイベントのコールバックを登録します。
@@ -139,6 +150,21 @@ interface ServerFormCancelEvent {
      * このフォームを再度開く
      */
     reopen(): void;
+}
+
+/**
+ * フォームが例外を捕捉したときに発火するイベントのコールバックに渡される引数
+ */
+interface ServerFormCatchErrorEvent {
+    /**
+     * プレイヤー
+     */
+    readonly player: Player;
+
+    /**
+     * エラー
+     */
+    readonly error: ServerFormError;
 }
 
 /**
@@ -213,7 +239,7 @@ interface Button {
      * ボタンを押したときに呼び出されるコールバック関数
      */
     readonly callbacks: Set<(player: Player) => void>
-    
+
     /**
      * ボタンのタグ
      */
@@ -439,7 +465,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param predicate ボタンの条件
      * @param callbackFn コールバック関数
      */
-    onPush(predicate: (button: Button) => void, callbackFn: (player: ServerFormButtonPushEvent) => void): ActionFormWrapper;
+    onPush(predicate: (button: Button) => void, callbackFn: (event: ServerFormButtonPushEvent) => void): ActionFormWrapper;
 
     /**
      * フォームのボタンの定義情報
@@ -525,7 +551,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * フォームの入力が送信された際に発火するイベントのコールバックを登録します。
      * @param callbackFn コールバック関数
      */
-    onSubmit(callbackFn: (arg: ModalFormSubmitEvent) => void): ModalFormWrapper;
+    onSubmit(callbackFn: (event: ModalFormSubmitEvent) => void): ModalFormWrapper;
 
     /**
      * フォームの要素の定義情報
@@ -610,7 +636,7 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param predicate ボタンの条件
      * @param callbackFn コールバック関数
      */
-    onPush(predicate: (button: Button) => boolean, callbackFn: (player: ServerFormButtonPushEvent) => void): MessageFormWrapper;
+    onPush(predicate: (button: Button) => boolean, callbackFn: (event: ServerFormButtonPushEvent) => void): MessageFormWrapper;
 
     /**
      * フォームのボタンの定義情報

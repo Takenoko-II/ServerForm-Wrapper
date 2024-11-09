@@ -9,6 +9,7 @@ import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/serve
 
 /**
  * @typedef {import("./UI").ServerFormCancelEvent} ServerFormCancelEvent
+ * @typedef {import("./UI").ServerFormCatchErrorEvent} ServerFormCatchErrorEvent
  * @typedef {import("./UI").ServerFormButtonPushEvent} ServerFormButtonPushEvent
  * @typedef {import("./UI").ModalFormSubmitEvent} ModalFormSubmitEvent
  * @typedef {import("./UI").Button} Button
@@ -43,10 +44,11 @@ export class ServerFormElementPredicates {
      * @returns {value is Button}
      */
     static isButton(value) {
-        return typeof value.name === "string"
-            && (typeof value.iconPath === "string" || value.iconPath === undefined)
-            && typeof value.callbacks instanceof Set
-            && isStringArray(value.tags)
+        if (value === undefined || value === null) return false;
+        return typeof value["name"] === "string"
+            && (typeof value["iconPath"] === "string" || value["iconPath"] === undefined)
+            && value["callbacks"] instanceof Set
+            && isStringArray(value["tags"])
     }
 
     /**
@@ -54,8 +56,9 @@ export class ServerFormElementPredicates {
      * @returns {value is ModalFormElement}
      */
     static isModalFormElement(value) {
-        return typeof value.id === "string"
-            && typeof value.label === "string";
+        if (value === undefined || value === null) return false;
+        return typeof value["id"] === "string"
+            && typeof value["label"] === "string";
     }
 
     /**
@@ -64,7 +67,7 @@ export class ServerFormElementPredicates {
      */
     static isToggle(value) {
         return this.isModalFormElement(value)
-            && typeof value.defaultValue === "boolean";
+            && typeof value["defaultValue"] === "boolean";
     }
 
     /**
@@ -73,10 +76,10 @@ export class ServerFormElementPredicates {
      */
     static isSlider(value) {
         return this.isModalFormElement(value)
-            && isNumber(value.range?.min)
-            && isNumber(value.range?.max)
-            && isNumber(value.step)
-            && isNumber(value.defaultValue);
+            && isNumber(value["range"]?.min)
+            && isNumber(value["range"]?.max)
+            && isNumber(value["step"])
+            && isNumber(value["defaultValue"]);
     }
 
     /**
@@ -85,8 +88,8 @@ export class ServerFormElementPredicates {
      */
     static isTextField(value) {
         return this.isModalFormElement(value)
-            && typeof value.placeHolder === "string"
-            && typeof value.defaultValue === "string";
+            && typeof value["placeHolder"] === "string"
+            && typeof value["defaultValue"] === "string";
     }
 
     /**
@@ -95,8 +98,8 @@ export class ServerFormElementPredicates {
      */
     static isDropdown(value) {
         return this.isModalFormElement(value)
-            && isStringArray(value.list)
-            && isNumber(value.defaultValueIndex);
+            && isStringArray(value["list"])
+            && isNumber(value["defaultValueIndex"]);
     }
 }
 
@@ -121,6 +124,9 @@ function freezeKey(object, ...keys) {
 }
 
 class ServerFormWrapper {
+    /**
+     * @param {symbol} key 
+     */
     constructor(key) {
         if (key !== ServerFormWrapper.PRIVATE_KEY) {
             throw new Error("このクラスのコンストラクタを外部から呼び出すことは原則禁止されています");
@@ -153,6 +159,15 @@ class ServerFormWrapper {
         "Any": new Set()
     };
 
+    /**
+     * @readonly
+     * @type {Set<(event: ServerFormCatchErrorEvent) => void>}
+     */
+    catchers = new Set();
+
+    /**
+     * @param {string} text
+     */
     title(text) {
         if (typeof text !== "string") {
             throw new TypeError("第一引数はstring型である必要があります");
@@ -163,6 +178,10 @@ class ServerFormWrapper {
         return this;
     }
 
+    /**
+     * @param {string} value 
+     * @param {(event: ServerFormCancelEvent) => void} callbackFn 
+     */
     onCancel(value, callbackFn) {
         if (typeof callbackFn !== "function") {
             throw new TypeError("第二引数は関数である必要があります");
@@ -187,6 +206,22 @@ class ServerFormWrapper {
         return this;
     }
 
+    /**
+     * @param {(event: ServerFormCatchErrorEvent) => void} callbackFn
+     */
+    catch(callbackFn) {
+        if (typeof callbackFn !== "function") {
+            throw new TypeError("第二引数は関数である必要があります");
+        }
+
+        this.catchers.add(callbackFn);
+
+        return this;
+    }
+
+    /**
+     * @param {void} _ 
+     */
     open(_) {
         throw new Error("ServerFormWrapperクラスから直接open関数を使用することはできません");
     }
@@ -204,7 +239,6 @@ export class ActionFormWrapper extends ServerFormWrapper {
 
     /**
      * @readonly
-     * @private
      */
     #data = {
         body: "",
@@ -222,6 +256,9 @@ export class ActionFormWrapper extends ServerFormWrapper {
         pushEventCallbacks: new Map()
     };
 
+    /**
+     * @param  {...string} text
+     */
     body(...text) {
         if (!Array.isArray(text)) {
             throw new TypeError("引数が配列ではありません");
@@ -316,7 +353,7 @@ export class ActionFormWrapper extends ServerFormWrapper {
             form.button(button.name, button.iconPath);
         }
 
-        form.show(player).then(response => {
+        const promise = form.show(player).then(response => {
             if (response.selection === undefined) {
                 const that = this;
                 const input = {
@@ -361,6 +398,17 @@ export class ActionFormWrapper extends ServerFormWrapper {
                 }
             });
         });
+
+        if (this.catchers.size > 0) {
+            promise.catch(error => {
+                this.catchers.forEach(catcher => {
+                    catcher({
+                        player,
+                        error: new ServerFormError(error)
+                    });
+                });
+            });
+        }
     }
 
     onPush(predicate, callbackFn) {
@@ -597,7 +645,7 @@ export class ModalFormWrapper extends ServerFormWrapper {
             }
         }
 
-        form.show(player).then(response => {
+        const promise = form.show(player).then(response => {
             if (response.formValues === undefined) {
                 const that = this;
                 const input = {
@@ -687,6 +735,17 @@ export class ModalFormWrapper extends ServerFormWrapper {
                 callbackFn({ player, ...input });
             });
         });
+
+        if (this.catchers.size > 0) {
+            promise.catch(error => {
+                this.catchers.forEach(catcher => {
+                    catcher({
+                        player,
+                        error: new ServerFormError(error)
+                    });
+                });
+            });
+        }
     }
 
     /**
@@ -903,7 +962,7 @@ export class MessageFormWrapper extends ServerFormWrapper {
         form.button1(this.#data.button1.name);
         form.button2(this.#data.button2.name);
 
-        form.show(player).then(response => {
+        const promise = form.show(player).then(response => {
             if (response.selection === undefined) {
                 const that = this;
                 const input = {
@@ -957,6 +1016,17 @@ export class MessageFormWrapper extends ServerFormWrapper {
                 });
             }
         });
+
+        if (this.catchers.size > 0) {
+            promise.catch(error => {
+                this.catchers.forEach(catcher => {
+                    catcher({
+                        player,
+                        error: new ServerFormError(error)
+                    });
+                });
+            });
+        }
     }
 
     onPush(predicate, callbackFn) {
@@ -1014,3 +1084,19 @@ export const ServerFormCancelationCause = Object.defineProperties({}, {
         value: "UserClosed"
     }
 });
+
+export class ServerFormError extends Error {
+    /**
+     * @readonly
+     * @type {unknown}
+     */
+    cause;
+
+    /**
+     * @param {unknown} cause 
+     */
+    constructor(cause) {
+        super("Unhandled Promise Rejection", { cause });
+        this.cause = cause;
+    }
+}
