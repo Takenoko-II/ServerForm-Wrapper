@@ -1,14 +1,17 @@
 /**
- * @author Takenoko-II
+ * @author @Takenoko-II
  * @copyright 2024/06/23
  */
 
 import { NumberRange } from "@minecraft/common";
 
-import { Player } from "@minecraft/server";
+import { Player, RawMessage } from "@minecraft/server";
 
+/**
+ * このライブラリが投げる例外のクラス
+ */
 export class ServerFormError extends Error {
-    readonly cause: unknown;
+    public readonly cause: unknown;
 }
 
 /**
@@ -31,42 +34,45 @@ export enum ServerFormCancelationCause {
     UserClosed = "UserClosed"
 }
 
+/**
+ * フォームの要素の型を絞り込むための関数の集合
+ */
 export class ServerFormElementPredicates {
     /**
      * @param value
      * @returns `value`が`Button`であれば真
      */
-    static isButton(value: unknown): value is Button;
+    public static isButton(value: unknown): value is Button;
 
     /**
      * @param value
      * @returns `value`が`ModalFormElement`であれば真
      */
-    static isModalFormElement(value: unknown): value is ModalFormElement;
+    public static isModalFormElement(value: unknown): value is ModalFormElement;
 
     /**
      * @param value
      * @returns `value`が`ModalFormToggle`であれば真
      */
-    static isToggle(value: unknown): value is ModalFormToggle;
+    public static isToggle(value: unknown): value is ModalFormToggle;
 
     /**
      * @param value
      * @returns `value`が`ModalFormSlider`であれば真
      */
-    static isSlider(value: unknown): value is ModalFormSlider;
+    public static isSlider(value: unknown): value is ModalFormSlider;
 
     /**
      * @param value
      * @returns `value`が`ModalFormTextField`であれば真
      */
-    static isTextField(value: unknown): value is ModalFormTextField;
+    public static isTextField(value: unknown): value is ModalFormTextField;
 
     /**
      * @param value
      * @returns `value`が`ModalFormDropdown`であれば真
      */
-    static isDropdown(value: unknown): value is ModalFormDropdown;
+    public static isDropdown(value: unknown): value is ModalFormDropdown;
 }
 
 /**
@@ -83,7 +89,7 @@ export abstract class ServerFormWrapper<T extends ServerFormWrapper<T>> {
      * @param text タイトル
      * @returns `this`
      */
-    public title(text: string): T;
+    public title(text: string | RawMessage): T;
 
     /**
      * フォームが閉じられた際に呼び出されるコールバック関数を登録します。
@@ -212,7 +218,7 @@ export interface ModalFormSubmitEvent {
      * 特定のIDのドロップダウンを取得します。
      * @param id 要素のID
      */
-    getDropdownInput(id: string): string | undefined;
+    getDropdownInput(id: string): SelectedDropdownValue | undefined;
 
     /**
      * 特定のIDのテキストフィールドを取得します。
@@ -223,7 +229,7 @@ export interface ModalFormSubmitEvent {
     /**
      * 入力された値を順にすべて返します。
      */
-    getAllInputs(): (string | number | boolean)[];
+    getAllInputs(): (string | number | boolean | SelectedDropdownValue)[];
 }
 
 /**
@@ -233,7 +239,7 @@ export interface Button {
     /**
      * ボタンの名前
      */
-    name: string;
+    name: string | RawMessage;
 
     /**
      * ボタンのアイコンのテクスチャパス
@@ -252,13 +258,13 @@ export interface Button {
 }
 
 /**
- * ボタンの入力用の型
+ * ボタン入力用の型
  */
-export interface ButtonInput {
+export interface ActionButtonInput {
     /**
      * ボタンの名前
      */
-    name: string;
+    name: string | RawMessage;
 
     /**
      * ボタンのアイコンのテクスチャパス
@@ -268,7 +274,27 @@ export interface ButtonInput {
     /**
      * ボタンを押したときに呼び出されるコールバック関数
      */
-    onPush?(event: ServerFormButtonPushEvent): void;
+    on?(player: Player): void;
+
+    /**
+     * ボタンのタグ
+     */
+    tags?: string[];
+}
+
+/**
+ * MessageFormのボタン入力用の型
+ */
+export interface MessageButtonInput {
+    /**
+     * ボタンの名前
+     */
+    name: string | RawMessage;
+
+    /**
+     * ボタンを押したときに呼び出されるコールバック関数
+     */
+    on?(player: Player): void;
 
     /**
      * ボタンのタグ
@@ -288,7 +314,7 @@ export interface ModalFormElement {
     /**
      * ラベル
      */
-    label: string;
+    label: string | RawMessage;
 }
 
 /**
@@ -306,14 +332,14 @@ export interface ModalFormToggle extends ModalFormElement {
  */
 export interface ModalFormSlider extends ModalFormElement {
     /**
-     * スライダーの数値の間隔
-     */
-    step: number;
-
-    /**
      * スライダーの数値の範囲
      */
     readonly range: NumberRange;
+
+    /**
+     * スライダーの数値の間隔
+     */
+    step: number;
 
     /**
      * デフォルト値
@@ -328,12 +354,30 @@ export interface ModalFormTextField extends ModalFormElement {
     /**
      * テキストフィールドの入力欄が未入力状態のときに表示する文字列
      */
-    placeHolder: string;
+    placeHolder: string | RawMessage;
 
     /**
      * デフォルト値
      */
     defaultValue: string;
+}
+
+/**
+ * ドロップダウンの選択肢
+ */
+export interface DropdownOption {
+    readonly id: string;
+
+    readonly text: string | RawMessage;
+}
+
+/**
+ * 選択されたドロップダウンの選択肢
+ */
+export interface SelectedDropdownValue {
+    readonly index: number;
+
+    readonly value: DropdownOption;
 }
 
 /**
@@ -343,7 +387,7 @@ export interface ModalFormDropdown extends ModalFormElement {
     /**
      * ドロップダウンのリスト
      */
-    readonly list: string[];
+    readonly list: DropdownOption[];
 
     /**
      * デフォルト値のインデックス
@@ -352,9 +396,24 @@ export interface ModalFormDropdown extends ModalFormElement {
 }
 
 /**
+ * ModalFormの要素入力用の型
+ */
+export interface ModalFormElementInput {
+    /**
+     * 要素のID
+     */
+    id: string;
+
+    /**
+     * ラベル
+     */
+    label: string | RawMessage;
+}
+
+/**
  * トグルの入力用の型
  */
-export interface ModalFormToggleInput extends ModalFormToggle {
+export interface ModalFormToggleInput extends ModalFormElementInput {
     /**
      * デフォルト値
      */
@@ -364,7 +423,12 @@ export interface ModalFormToggleInput extends ModalFormToggle {
 /**
  * スライダーの入力用の型
  */
-export interface ModalFormSliderInput extends ModalFormSlider {
+export interface ModalFormSliderInput extends ModalFormElementInput {
+    /**
+     * スライダーの数値の範囲
+     */
+    range: NumberRange;
+
     /**
      * スライダーの数値の間隔
      */
@@ -379,21 +443,31 @@ export interface ModalFormSliderInput extends ModalFormSlider {
 /**
  * テキストフィールドの入力用の型
  */
-export interface ModalFormTextFieldInput extends ModalFormTextField {    
+export interface ModalFormTextFieldInput extends ModalFormElementInput {
+    /**
+     * テキストフィールドの入力欄が未入力状態のときに表示する文字列
+     */
+    placeHolder: string | RawMessage;
+
     /**
      * デフォルト値
      */
-    override defaultValue?: string;
+    defaultValue?: string;
 }
 
 /**
  * ドロップダウンの入力用の型
  */
-export interface ModalFormDropdownInput extends ModalFormDropdown {
+export interface ModalFormDropdownInput extends ModalFormElementInput {
+    /**
+     * ドロップダウンのリスト
+     */
+    list: DropdownOption[];
+
     /**
      * デフォルト値のインデックス
      */
-    override defaultValueIndex?: number;
+    defaultValueIndex?: number;
 }
 
 /**
@@ -438,7 +512,7 @@ export interface ModalFormElementDefinitions {
     /**
      * 送信ボタンの名前を取得します。
      */
-    getSubmitButtonName(): string | undefined;
+    getSubmitButtonName(): string | RawMessage | undefined;
 
     /**
      * 条件に一致する要素を取得します。
@@ -471,13 +545,13 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * フォームの本文を変更します。
      * @param texts 本文
      */
-    public body(...texts: string[]): ActionFormWrapper;
+    public body(...texts: (string | RawMessage)[]): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
      * @param name ボタンの名前
      */
-    public button(name: string): ActionFormWrapper;
+    public button(name: string | RawMessage): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -485,7 +559,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param iconPath ボタンのアイコンのテクスチャパス
      * @overload
      */
-    public button(name: string, iconPath: string): ActionFormWrapper;
+    public button(name: string | RawMessage, iconPath: string): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -493,7 +567,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param callbackFn コールバック関数
      * @overload
      */
-    public button(name: string, callbackFn: (player: Player) => void): ActionFormWrapper;
+    public button(name: string | RawMessage, callbackFn: (player: Player) => void): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -502,7 +576,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param callbackFn コールバック関数
      * @overload
      */
-    public button(name: string, iconPath: string, callbackFn: (player: Player) => void): ActionFormWrapper;
+    public button(name: string | RawMessage, iconPath: string, callbackFn: (player: Player) => void): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -510,7 +584,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param tags ボタンのタグ
      * @overload
      */
-    public button(name: string, tags: string[]): ActionFormWrapper;
+    public button(name: string | RawMessage, tags: string[]): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -519,7 +593,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param tags ボタンのタグ
      * @overload
      */
-    public button(name: string, iconPath: string, tags: string[]): ActionFormWrapper;
+    public button(name: string | RawMessage, iconPath: string, tags: string[]): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -528,7 +602,7 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param tags ボタンのタグ
      * @overload
      */
-    public button(name: string, callbackFn: (player: Player) => void, tags: string[]): ActionFormWrapper;
+    public button(name: string | RawMessage, callbackFn: (player: Player) => void, tags: string[]): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
@@ -538,14 +612,14 @@ export class ActionFormWrapper extends ServerFormWrapper<ActionFormWrapper> impl
      * @param tags ボタンのタグ
      * @overload
      */
-    public button(name: string, iconPath: string, callbackFn: (player: Player) => void, tags: string[]): ActionFormWrapper;
+    public button(name: string | RawMessage, iconPath: string, callbackFn: (player: Player) => void, tags: string[]): ActionFormWrapper;
 
     /**
      * フォームにボタンを追加します。
      * @param button ボタン
      * @overload
      */
-    public button(button: ButtonInput): ActionFormWrapper;
+    public button(button: ActionButtonInput): ActionFormWrapper;
 
     /**
      * ボタンを押した際に発火するイベントのコールバックを登録します。
@@ -575,7 +649,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * @param label トグルのラベル
      * @param defaultValue デフォルト値
      */
-    public toggle(id: string, label: string, defaultValue?: boolean): ModalFormWrapper;
+    public toggle(id: string, label: string | RawMessage, defaultValue?: boolean): ModalFormWrapper;
 
     /**
      * フォームにトグルを追加します。
@@ -592,7 +666,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * @param step スライダーの間隔
      * @param defaultValue デフォルト値
      */
-    public slider(id: string, label: string, range: NumberRange, step?: number, defaultValue?: number): ModalFormWrapper;
+    public slider(id: string, label: string | RawMessage, range: NumberRange, step?: number, defaultValue?: number): ModalFormWrapper;
 
     /**
      * フォームにスライダーを追加します。
@@ -608,7 +682,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * @param list ドロップダウンのリスト
      * @param defaultValueIndex デフォルトのインデックス
      */
-    public dropdown(id: string, label: string, list: string[], defaultValueIndex?: number): ModalFormWrapper;
+    public dropdown(id: string, label: string | RawMessage, list: (string | RawMessage)[], defaultValueIndex?: number): ModalFormWrapper;
 
     /**
      * フォームにドロップダウンを追加します。
@@ -624,7 +698,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * @param placeHolder テキストフィールドのプレイスホルダー
      * @param defaultValue デフォルト値
      */
-    public textField(id: string, label: string, placeHolder: string, defaultValue?: string): ModalFormWrapper;
+    public textField(id: string, label: string | RawMessage, placeHolder: string | RawMessage, defaultValue?: string): ModalFormWrapper;
 
     /**
      * フォームにテキストフィールドを追加します。
@@ -637,7 +711,7 @@ export class ModalFormWrapper extends ServerFormWrapper<ModalFormWrapper> implem
      * 送信ボタンの名前を設定します。
      * @param name ボタンの名前
      */
-    public submitButtonName(name: string): ModalFormWrapper;
+    public submitButtonName(name: string | RawMessage): ModalFormWrapper;
 
     /**
      * フォームの入力が送信された際に発火するイベントのコールバックを登録します。
@@ -664,13 +738,13 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * フォームの本文を変更します。
      * @param texts 本文
      */
-    public body(...texts: string[]): MessageFormWrapper;
+    public body(...texts: (string | RawMessage)[]): MessageFormWrapper;
 
     /**
      * フォームにボタン1を追加します。
      * @param name ボタンの名前
      */
-    public button1(name: string): MessageFormWrapper;
+    public button1(name: string | RawMessage): MessageFormWrapper;
 
     /**
      * フォームにボタン1を追加します。
@@ -678,7 +752,7 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param callbackFn コールバック関数
      * @overload
      */
-    public button1(name: string, callbackFn: (player: Player) => void): MessageFormWrapper;
+    public button1(name: string | RawMessage, callbackFn: (player: Player) => void): MessageFormWrapper;
 
     /**
      * フォームにボタン1を追加します。
@@ -686,7 +760,7 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param tags ボタンのタグ
      * @overload
      */
-    public button1(name: string, tags: string[]): MessageFormWrapper;
+    public button1(name: string | RawMessage, tags: string[]): MessageFormWrapper;
 
     /**
      * フォームにボタン1を追加します。
@@ -695,20 +769,20 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param tags ボタンのタグ
      * @overload
      */
-    public button1(name: string, callbackFn: (player: Player) => void, tags: string[]): MessageFormWrapper;
+    public button1(name: string | RawMessage, callbackFn: (player: Player) => void, tags: string[]): MessageFormWrapper;
 
     /**
      * フォームにボタン1を追加します。
      * @param button1 ボタン1
      * @overload
      */
-    public button1(button1: ButtonInput): MessageFormWrapper;
+    public button1(button1: MessageButtonInput): MessageFormWrapper;
 
     /**
      * フォームにボタン2を追加します。
      * @param name ボタンの名前
      */
-    public button2(name: string): MessageFormWrapper;
+    public button2(name: string | RawMessage): MessageFormWrapper;
 
     /**
      * フォームにボタン2を追加します。
@@ -716,7 +790,7 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param callbackFn コールバック関数
      * @overload
      */
-    public button2(name: string, callbackFn: (player: Player) => void): MessageFormWrapper;
+    public button2(name: string | RawMessage, callbackFn: (player: Player) => void): MessageFormWrapper;
 
     /**
      * フォームにボタン2を追加します。
@@ -724,7 +798,7 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param tags ボタンのタグ
      * @overload
      */
-    public button2(name: string, tags: string[]): MessageFormWrapper;
+    public button2(name: string | RawMessage, tags: string[]): MessageFormWrapper;
 
     /**
      * フォームにボタン2を追加します。
@@ -733,14 +807,14 @@ export class MessageFormWrapper extends ServerFormWrapper<MessageFormWrapper> im
      * @param tags ボタンのタグ
      * @overload
      */
-    public button2(name: string, callbackFn: (player: Player) => void, tags: string[]): MessageFormWrapper;
+    public button2(name: string | RawMessage, callbackFn: (player: Player) => void, tags: string[]): MessageFormWrapper;
 
     /**
      * フォームにボタン2を追加します。
      * @param button2 ボタン2
      * @overload
      */
-    public button2(button2: ButtonInput): MessageFormWrapper;
+    public button2(button2: MessageButtonInput): MessageFormWrapper;
 
     /**
      * ボタンを押した際に発火するイベントのコールバックを登録します。

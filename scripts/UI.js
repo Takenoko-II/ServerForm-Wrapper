@@ -1,6 +1,9 @@
 /**
- * @author Takenoko-II
+ * @author @Takenoko-II
  * @copyright 2024/06/23
+ * 
+ * 書いたのが古すぎて@ts-check走らせると真っ赤になっちゃうのでこのファイルの型チェック無視してあげてください...
+ * .d.tsあるから許して
  */
 
 import { Player, system } from "@minecraft/server";
@@ -8,21 +11,23 @@ import { Player, system } from "@minecraft/server";
 import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 
 /**
- * @typedef {import("./UI").ServerFormCancelEvent} ServerFormCancelEvent
- * @typedef {import("./UI").ServerFormCatchErrorEvent} ServerFormCatchErrorEvent
- * @typedef {import("./UI").ServerFormButtonPushEvent} ServerFormButtonPushEvent
- * @typedef {import("./UI").ModalFormSubmitEvent} ModalFormSubmitEvent
- * @typedef {import("./UI").Button} Button
- * @typedef {import("./UI").ModalFormElement} ModalFormElement
- * @typedef {import("./UI").ModalFormToggle} ModalFormToggle
- * @typedef {import("./UI").ModalFormSlider} ModalFormSlider
- * @typedef {import("./UI").ModalFormTextField} ModalFormTextField
- * @typedef {import("./UI").ModalFormDropdown} ModalFormDropdown
- * @typedef {import("./UI").ButtonInput} ButtonInput
- * @typedef {import("./UI").ModalFormToggleInput} ModalFormToggleInput
- * @typedef {import("./UI").ModalFormSliderInput} ModalFormSliderInput
- * @typedef {import("./UI").ModalFormTextFieldInput} ModalFormTextFieldInput
- * @typedef {import("./UI").ModalFormDropdownInput} ModalFormDropdownInput
+ * @typedef {{readonly player: Player; readonly reason: ServerFormCancelationCause; reopen(): void;}} ServerFormCancelEvent
+ * @typedef {{readonly player: Player; readonly error: ServerFormError;}} ServerFormCatchErrorEvent
+ * @typedef {{readonly player: Player; readonly button: Button;}} ServerFormButtonPushEvent
+ * @typedef {{readonly player: Player; getToggleInput(id: string): boolean | undefined; getSliderInput(id: string): number | undefined; getDropdownInput(id: string): string | undefined; getTextFieldInput(id: string): string | undefined; getAllInputs(): (string | number | boolean)[];}} ModalFormSubmitEvent
+ * @typedef {{name: string | import("@minecraft/server").RawMessage; iconPath?: string; readonly callbacks: Set<(player: Player) => void>; readonly tags: string[];}} Button
+ * @typedef {{readonly id: string; label: string | import("@minecraft/server").RawMessage;}} ModalFormElement
+ * @typedef {{readonly id: string; label: string | import("@minecraft/server").RawMessage; defaultValue: boolean;}} ModalFormToggle
+ * @typedef {{readonly id: string; label: string | import("@minecraft/server").RawMessage; readonly range: import("@minecraft/common").NumberRange; step: number; defaultValue: number;}} ModalFormSlider
+ * @typedef {{readonly id: string; label: string | import("@minecraft/server").RawMessage; placeHolder: string | import("@minecraft/server").RawMessage; defaultValue: string;}} ModalFormTextField
+ * @typedef {{readonly id: string; readonly text: string | import("@minecraft/server").RawMessage;}} DropdownOption
+ * @typedef {{readonly id: string; label: string | import("@minecraft/server").RawMessage; readonly list: DropdownOption[]; defaultValueIndex: number;}} ModalFormDropdown
+ * @typedef {{name: string | import("@minecraft/server").RawMessage; iconPath?: string; on?(player: Player): void; tags?: string[];}} ActionButtonInput
+ * @typedef {{name: string | import("@minecraft/server").RawMessage; on?(player: Player): void; tags?: string[];}} MessageButtonInput
+ * @typedef {{id: string; label: string | import("@minecraft/server").RawMessage; defaultValue?: boolean;}} ModalFormToggleInput
+ * @typedef {{id: string; label: string | import("@minecraft/server").RawMessage; range: import("@minecraft/common").NumberRange; step?: number; defaultValue?: number;}} ModalFormSliderInput
+ * @typedef {{id: string; label: string | import("@minecraft/server").RawMessage; placeHolder: string | import("@minecraft/server").RawMessage; defaultValue?: string;}} ModalFormTextFieldInput
+ * @typedef {{id: string; label: string | import("@minecraft/server").RawMessage; list: DropdownOption[]; defaultValueIndex?: number;}} ModalFormDropdownInput
  */
 
 /**
@@ -43,6 +48,22 @@ function isStringArray(value) {
     return !value.some(_ => typeof _ !== "string");
 }
 
+/**
+ * @param {unknown} value
+ * @returns {value is DropdownOption[]}
+ */
+function isDropdownOptionArray(value) {
+    if (!Array.isArray(value)) return false;
+
+    return value.every(_ => {
+        if (typeof _ === "object" && _ !== null) {
+            return typeof _["id"] === "string"
+                && (typeof _["text"] === "string" || (typeof _["text"] === "object" && _["text"] !== null))
+        }
+        else return false;
+    });
+}
+
 export class ServerFormElementPredicates {
     /**
      * @param {unknown} value
@@ -58,12 +79,23 @@ export class ServerFormElementPredicates {
 
     /**
      * @param {unknown} value
-     * @returns {value is ButtonInput}
+     * @returns {value is ActionButtonInput}
      */
-    static isButtonInput(value) {
+    static isActionButtonInput(value) {
         if (value === undefined || value === null) return false;
-        return typeof value["name"] === "string"
+        return (typeof value["name"] === "string" || (typeof value["name"] === "object" && value !== null))
             && (typeof value["iconPath"] === "string" || value["iconPath"] === undefined)
+            && (typeof value["onPush"] === "function" || value["onPush"] === undefined)
+            && (isStringArray(value["tags"]) || value["tags"] === undefined)
+    }
+
+    /**
+     * @param {unknown} value
+     * @returns {value is MessageButtonInput}
+     */
+    static isMessageButtonInput(value) {
+        if (value === undefined || value === null) return false;
+        return (typeof value["name"] === "string" || (typeof value["name"] === "object" && value !== null))
             && (typeof value["onPush"] === "function" || value["onPush"] === undefined)
             && (isStringArray(value["tags"]) || value["tags"] === undefined)
     }
@@ -75,7 +107,7 @@ export class ServerFormElementPredicates {
     static isModalFormElement(value) {
         if (value === undefined || value === null) return false;
         return typeof value["id"] === "string"
-            && typeof value["label"] === "string";
+            && (typeof value["label"] === "string" || (typeof value["label"] === "object" && value !== null));
     }
 
     /**
@@ -105,7 +137,7 @@ export class ServerFormElementPredicates {
      */
     static isTextField(value) {
         return this.isModalFormElement(value)
-            && typeof value["placeHolder"] === "string"
+            && (typeof value["placeHolder"] === "string" || (typeof value["placeHolder"] === "object" && value !== null))
             && typeof value["defaultValue"] === "string";
     }
 
@@ -115,7 +147,7 @@ export class ServerFormElementPredicates {
      */
     static isDropdown(value) {
         return this.isModalFormElement(value)
-            && isStringArray(value["list"])
+            && isDropdownOptionArray(value["list"])
             && isNumber(value["defaultValueIndex"]);
     }
 
@@ -146,7 +178,7 @@ export class ServerFormElementPredicates {
      */
     static isTextFieldInput(value) {
         return this.isModalFormElement(value)
-            && typeof value["placeHolder"] === "string"
+            && (typeof value["placeHolder"] === "string" || (typeof value["placeHolder"] === "object" && value !== null))
             && (typeof value["defaultValue"] === "string" || value["defaultValue"] === undefined);
     }
 
@@ -156,7 +188,7 @@ export class ServerFormElementPredicates {
      */
     static isDropdownInput(value) {
         return this.isModalFormElement(value)
-            && isStringArray(value["list"])
+            && isDropdownOptionArray(value["list"])
             && (isNumber(value["defaultValueIndex"]) || value["defaultValueIndex"] === undefined);
     }
 }
@@ -192,7 +224,7 @@ export class ServerFormWrapper {
     }
 
     /**
-     * @type {string}
+     * @type {string | import("@minecraft/server").RawMessage}
      */
     titleText;
 
@@ -224,11 +256,11 @@ export class ServerFormWrapper {
     catchers = new Set();
 
     /**
-     * @param {string} text
+     * @param {string | import("@minecraft/server").RawMessage} text
      */
     title(text) {
-        if (typeof text !== "string") {
-            throw new TypeError("第一引数はstring型である必要があります");
+        if (typeof text !== "string" && typeof text !== "object") {
+            throw new TypeError("第一引数はstring | RawText型である必要があります");
         }
 
         this.titleText = text;
@@ -299,7 +331,10 @@ export class ActionFormWrapper extends ServerFormWrapper {
      * @readonly
      */
     #data = {
-        body: "",
+        /**
+         * @type {string | import("@minecraft/server").RawMessage}
+         */
+        body: { text: "" },
 
         /**
          * @type {Button[]}
@@ -315,32 +350,56 @@ export class ActionFormWrapper extends ServerFormWrapper {
     };
 
     /**
-     * @param  {...string} text
+     * @param  {...(string | import("@minecraft/server").RawMessage)} text
      */
     body(...text) {
         if (!Array.isArray(text)) {
             throw new TypeError("引数が配列ではありません");
         }
-        else if (text.length === 0 || text.some(_ => typeof _ !== "string")) {
-            throw new TypeError("引数の配列の長さが0か、配列がstring[]ではありません");
+        else if (text.length === 0 || text.some(_ => typeof _ !== "string" && typeof _ !== "object" && _ !== null)) {
+            throw new TypeError("引数の配列の長さが0か、配列が(string | RawMessage)[]ではありません");
         }
 
-        this.#data.body = text.join("\n");
+        this.#data.body = {
+            rawtext: text.map((_, i) => {
+                const r = (typeof _ === "string") ? { text: _ } : _;
+
+                if (i < text.length - 1) return {
+                    rawtext: [
+                        r,
+                        { text: "\n" }
+                    ]
+                };
+                else return r;
+            })
+        };
 
         return this;
     }
 
-    button(name, a, b, c) {
-        if (ServerFormElementPredicates.isButtonInput(name) && a === undefined && b === undefined && c === undefined) {
+    button(x, a, b, c) {
+        if (ServerFormElementPredicates.isActionButtonInput(x) && a === undefined && b === undefined && c === undefined) {
             /**
              * @type {Button}
              */
             const button = Object.defineProperties({}, {
+                name: {
+                    writable: true,
+                    enumerable: true,
+                    configurable: false,
+                    value: x.name
+                },
+                iconPath: {
+                    writable: true,
+                    enumerable: true,
+                    configurable: false,
+                    value: x.iconPath
+                },
                 tags: {
                     writable: false,
                     enumerable: true,
                     configurable: false,
-                    value: name.tags
+                    value: x.tags ?? []
                 },
                 callbacks: {
                     writable: false,
@@ -350,67 +409,68 @@ export class ActionFormWrapper extends ServerFormWrapper {
                 }
             });
 
-            if (typeof name.onPush === "function") {
-                button.callbacks.add(name.onPush);
+            if (typeof x.on === "function") {
+                button.callbacks.add(x.on);
             }
 
             this.#data.buttons.push(button);
         }
-        else if (typeof name !== "string") {
-            throw new TypeError("第一引数はstringである必要があります");
-        }
+        else if (typeof x === "string" || (typeof x === "object" && x !== null)) {
+            /**
+             * @type {Button}
+             */
+            const button = { name: x };
 
-        /**
-         * @type {Button}
-         */
-        const button = { name };
+            Object.defineProperties(button, {
+                tags: {
+                    writable: false,
+                    enumerable: true,
+                    configurable: false,
+                    value: []
+                },
+                callbacks: {
+                    writable: false,
+                    enumerable: true,
+                    configurable: false,
+                    value: new Set()
+                }
+            });
 
-        Object.defineProperties(button, {
-            tags: {
-                writable: false,
-                enumerable: true,
-                configurable: false,
-                value: []
-            },
-            callbacks: {
-                writable: false,
-                enumerable: true,
-                configurable: false,
-                value: new Set()
+            this.#data.buttons.push(button);
+
+            if ((typeof a === "string" || typeof a === "object") && b === undefined && c === undefined) {
+                button.iconPath = a;
             }
-        });
-
-        this.#data.buttons.push(button);
-
-        if (typeof a === "string" && b === undefined && c === undefined) {
-            button.iconPath = a;
+            else if (typeof a === "function" && b === undefined && c === undefined) {
+                button.callbacks.add(a);
+            }
+            else if ((typeof a === "string" || typeof a === "object") && typeof b === "function" && c === undefined) {
+                button.iconPath = a;
+                button.callbacks.add(b);
+            }
+            else if (isStringArray(a) && b === undefined && c === undefined) {
+                button.tags.push(...a);
+            }
+            else if ((typeof a === "string" || typeof a === "object") && isStringArray(b) && c === undefined) {
+                button.iconPath = a;
+                button.tags.push(...b);
+            }
+            else if (typeof a === "function" && isStringArray(b) && c === undefined) {
+                button.callbacks.add(a);
+                button.tags.push(...b);
+            }
+            else if ((typeof a === "string" || typeof a === "object") && typeof b === "function" && isStringArray(c)) {
+                button.iconPath = a;
+                button.callbacks.add(b);
+                button.tags.push(...c);
+            }
+            else if (!(a === undefined && b === undefined && c === undefined)) {
+                console.warn(a, b, c);
+                throw new TypeError("渡された引数の型が適切ではありません");
+            }
         }
-        else if (typeof a === "function" && b === undefined && c === undefined) {
-            button.callbacks.add(a);
-        }
-        else if (typeof a === "string" && typeof b === "function" && c === undefined) {
-            button.iconPath = a;
-            button.callbacks.add(b);
-        }
-        else if (isStringArray(a) && b === undefined && c === undefined) {
-            button.tags.push(...a);
-        }
-        else if (typeof a === "string" && isStringArray(b) && c === undefined) {
-            button.iconPath = a;
-            button.tags.push(...b);
-        }
-        else if (typeof a === "function" && isStringArray(b) && c === undefined) {
-            button.callbacks.add(a);
-            button.tags.push(...b);
-        }
-        else if (typeof a === "string" && typeof b === "function" && isStringArray(c)) {
-            button.iconPath = a;
-            button.callbacks.add(b);
-            button.tags.push(...c);
-        }
-        else if (!(a === undefined && b === undefined && c === undefined)) {
-            console.warn(a, b, c);
-            throw new TypeError("渡された引数の型が適切ではありません");
+        else {
+            throw new TypeError("この形式の関数呼び出しでは第一引数はstring | RawMessageである必要があります");
         }
 
         return this;
@@ -421,8 +481,8 @@ export class ActionFormWrapper extends ServerFormWrapper {
             throw new TypeError("プレイヤーじゃないやつにフォーム表示できるわけないやろ");
         }
 
-        if (typeof this.titleText !== "string") {
-            throw new TypeError("タイトル文字列として保存されている値がstringではありません: " + this.titleText);
+        if (typeof this.titleText !== "string" && typeof this.titleText !== "object") {
+            throw new TypeError("タイトル文字列として保存されている値がstring | RawMessageではありません: " + this.titleText);
         }
 
         const form = new ActionFormData()
@@ -552,7 +612,7 @@ export class ModalFormWrapper extends ServerFormWrapper {
         submitEventCallbacks: new Set(),
 
         /**
-         * @type {string}
+         * @type {string | import("@minecraft/server").RawMessage}
          */
         submitButtonName: undefined
     };
@@ -571,8 +631,8 @@ export class ModalFormWrapper extends ServerFormWrapper {
         if (typeof id !== "string") {
             throw new TypeError("この形式の関数呼び出しでは第一引数はstringである必要があります");
         }
-        else if (typeof label !== "string") {
-            throw new TypeError("この形式の関数呼び出しでは第二引数はstringである必要があります");
+        else if (typeof label !== "string" && typeof label !== "object") {
+            throw new TypeError("この形式の関数呼び出しでは第二引数はstring | RawMessageである必要があります");
         }
         else if (typeof defaultValue !== "boolean") {
             throw new TypeError("この形式の関数呼び出しでは第三引数はbooleanである必要があります");
@@ -603,8 +663,8 @@ export class ModalFormWrapper extends ServerFormWrapper {
         if (typeof id !== "string") {
             throw new TypeError("この形式の関数呼び出しでは第一引数はstringである必要があります");
         }
-        else if (typeof label !== "string") {
-            throw new TypeError("この形式の関数呼び出しでは第二引数はstringである必要があります");
+        else if (typeof label !== "string" && typeof label !== "object") {
+            throw new TypeError("この形式の関数呼び出しでは第二引数はstring | RawMessageである必要があります");
         }
         else if (!(typeof range === "object" && range !== null)) {
             throw new TypeError("この形式の関数呼び出しでは第三引数はオブジェクトである必要があります");
@@ -640,8 +700,8 @@ export class ModalFormWrapper extends ServerFormWrapper {
         if (typeof id !== "string") {
             throw new TypeError("この形式の関数呼び出しでは第一引数はstringである必要があります");
         }
-        else if (typeof label !== "string") {
-            throw new TypeError("この形式の関数呼び出しでは第二引数はstringである必要があります");
+        else if (typeof label !== "string" && typeof label !== "object") {
+            throw new TypeError("この形式の関数呼び出しでは第二引数はstring | RawMessageである必要があります");
         }
         else if (!Array.isArray(list)) {
             throw new TypeError("この形式の関数呼び出しでは第三引数は配列である必要があります");
@@ -649,8 +709,8 @@ export class ModalFormWrapper extends ServerFormWrapper {
         else if (list.length === 0) {
             throw new TypeError("この形式の関数呼び出しでは第三引数の配列の長さは1以上である必要があります");
         }
-        else if (list.some(_ => typeof _ !== "string")) {
-            throw new TypeError("この形式の関数呼び出しでは第三引数はstring[]である必要があります");
+        else if (list.some(_ => typeof _ !== "string" && typeof _ !== "object")) {
+            throw new TypeError("この形式の関数呼び出しでは第三引数は(string | RawMessage)[]である必要があります");
         }
         else if (!isNumber(defaultValueIndex)) {
             throw new TypeError("この形式の関数呼び出しでは第四引数はNaNでないnumberである必要があります");
@@ -664,7 +724,7 @@ export class ModalFormWrapper extends ServerFormWrapper {
     }
 
     textField(id, label, placeHolder = "", defaultValue = "") {
-        if (ServerFormElementPredicates.isTextField(id) && label === undefined && placeHolder === "" && defaultValue === "") {
+        if (ServerFormElementPredicates.isTextFieldInput(id) && label === undefined && placeHolder === "" && defaultValue === "") {
             if (id.defaultValue === undefined) {
                 id.defaultValue = defaultValue;
             }
@@ -677,11 +737,11 @@ export class ModalFormWrapper extends ServerFormWrapper {
         if (typeof id !== "string") {
             throw new TypeError("この形式の関数呼び出しでは第一引数はstringである必要があります");
         }
-        else if (typeof label !== "string") {
-            throw new TypeError("この形式の関数呼び出しでは第二引数はstringである必要があります");
+        else if (typeof label !== "string" && typeof label !== "object" && label !== null) {
+            throw new TypeError("この形式の関数呼び出しでは第二引数はstring | RawMessageである必要があります");
         }
-        else if (typeof placeHolder !== "string") {
-            throw new TypeError("この形式の関数呼び出しでは第三引数はstringである必要があります");
+        else if (typeof placeHolder !== "string" && typeof placeHolder !== "object" && placeHolder !== null) {
+            throw new TypeError("この形式の関数呼び出しでは第三引数はstring | RawMessageである必要があります");
         }
         else if (typeof defaultValue !== "string") {
             throw new TypeError("この形式の関数呼び出しでは第四引数はstringである必要があります");
@@ -695,8 +755,8 @@ export class ModalFormWrapper extends ServerFormWrapper {
     }
 
     submitButtonName(name) {
-        if (typeof name !== "string") {
-            throw new TypeError("引数がstringではありません");
+        if (typeof name !== "string" && typeof name !== "object" && name !== null) {
+            throw new TypeError("引数がstring | RawMessageではありません");
         }
 
         this.#data.submitButtonName = name;
@@ -719,8 +779,8 @@ export class ModalFormWrapper extends ServerFormWrapper {
             throw new TypeError("引数はプレイヤーである必要があります");
         }
 
-        if (typeof this.titleText !== "string") {
-            throw new TypeError("タイトル文字列として保存されている値がstringではありません: " + this.titleText);
+        if (typeof this.titleText !== "string" && typeof this.titleText !== "object") {
+            throw new TypeError("タイトル文字列として保存されている値がstring | RawMessageではありません: " + this.titleText);
         }
 
         const form = new ModalFormData()
@@ -741,7 +801,7 @@ export class ModalFormWrapper extends ServerFormWrapper {
                     break;
                 }
                 case "dropdown": {
-                    form.dropdown(value.label, value.list, value.defaultValueIndex);
+                    form.dropdown(value.label, value.list.map(_ => _.text), value.defaultValueIndex);
                     break;
                 }
                 case "textField": {
@@ -813,7 +873,7 @@ export class ModalFormWrapper extends ServerFormWrapper {
 
                 const value = that.#data.values[index];
 
-                return value.type === "dropdown" ? value.list[response.formValues[index]] : response.formValues[index];
+                return value.type === "dropdown" ? { index: response.formValues[index], value: value.list[response.formValues[index]] } : response.formValues[index];
             }
 
             const input = {
@@ -947,7 +1007,10 @@ export class MessageFormWrapper extends ServerFormWrapper {
      * @readonly
      */
     #data = {
-        body: "",
+        /**
+         * @type {string | import("@minecraft/server").RawMessage}
+         */
+        body: { text: "" },
 
         /**
          * @readonly
@@ -955,7 +1018,7 @@ export class MessageFormWrapper extends ServerFormWrapper {
          */
         button1: {
             /**
-             * @type {string}
+             * @type {string | import("@minecraft/server").RawMessage}
              * @readonly
              */
             name: "",
@@ -973,7 +1036,7 @@ export class MessageFormWrapper extends ServerFormWrapper {
          */
         button2: {
             /**
-             * @type {string}
+             * @type {string | import("@minecraft/server").RawMessage}
              * @readonly
              */
             name: "",
@@ -996,55 +1059,91 @@ export class MessageFormWrapper extends ServerFormWrapper {
         if (!Array.isArray(text)) {
             throw new TypeError("引数が配列ではありません");
         }
-        else if (text.some(_ => typeof _ !== "string")) {
-            throw new TypeError("引数がstring[]ではありません");
+        else if (text.some(_ => typeof _ !== "string" && typeof _ !== "object")) {
+            throw new TypeError("引数が(string | RawMessage)[]ではありません");
         }
 
-        this.#data.body = text.join("\n");
+        this.#data.body = {
+            rawtext: text.map((_, i) => {
+                const r = (typeof _ === "string") ? { text: _ } : _;
+
+                if (i < text.length - 1) return {
+                    rawtext: [
+                        r,
+                        { text: "\n" }
+                    ]
+                };
+                else return r;
+            })
+        };
 
         return this;
     }
 
     button1(name, a, b) {
-        if (typeof name !== "string") {
-            throw new TypeError("第一引数はstringである必要があります");
-        }
+        if (ServerFormElementPredicates.isMessageButtonInput(name)) {
+            this.#data.button1.name = name.name;
 
-        this.#data.button1.name = name;
+            if (typeof name.on === "function") {
+                this.#data.button1.callbacks.add(name.on);
+            }
 
-        if (typeof a === "function" && b === undefined) {
-            this.#data.button1.callbacks.add(a);
+            if (isStringArray(name.tags)) {
+                this.#data.button1.tags.push(...name.tags);
+            }
         }
-        else if (isStringArray(a) && b === undefined) {
-            this.#data.button1.tags.push(...a);
+        else if (typeof name === "string" || (typeof name === "object" && name !== null)) {
+            this.#data.button1.name = name;
+
+            if (typeof a === "function" && b === undefined) {
+                this.#data.button1.callbacks.add(a);
+            }
+            else if (isStringArray(a) && b === undefined) {
+                this.#data.button1.tags.push(...a);
+            }
+            else if (typeof a === "function" && isStringArray(b)) {
+                this.#data.button1.callbacks.add(a);
+                this.#data.button1.tags.push(...b);
+            }
+            else if (!(a === undefined && b === undefined)) throw new TypeError("渡された引数の型が適切ではありません");
         }
-        else if (typeof a === "function" && isStringArray(b)) {
-            this.#data.button1.callbacks.add(a);
-            this.#data.button1.tags.push(...b);
+        else {
+            throw new TypeError("第一引数はstring | RawMessage | ButtonInputである必要があります");
         }
-        else if (!(a === undefined && b === undefined)) throw new TypeError("渡された引数の型が適切ではありません");
 
         return this;
     }
 
     button2(name, a, b) {
-        if (typeof name !== "string") {
-            throw new TypeError("第一引数はstringである必要があります");
-        }
+        if (ServerFormElementPredicates.isMessageButtonInput(name)) {
+            this.#data.button2.name = name.name;
 
-        this.#data.button2.name = name;
-        
-        if (typeof a === "function" && b === undefined) {
-            this.#data.button2.callbacks.add(a);
+            if (typeof name.on === "function") {
+                this.#data.button2.callbacks.add(name.on);
+            }
+
+            if (isStringArray(name.tags)) {
+                this.#data.button2.tags.push(...name.tags);
+            }
         }
-        else if (isStringArray(a) && b === undefined) {
-            this.#data.button2.tags.push(...a);
+        else if (typeof name === "string" || (typeof name === "object" && name !== null)) {
+            this.#data.button2.name = name;
+
+            if (typeof a === "function" && b === undefined) {
+                this.#data.button2.callbacks.add(a);
+            }
+            else if (isStringArray(a) && b === undefined) {
+                this.#data.button2.tags.push(...a);
+            }
+            else if (typeof a === "function" && isStringArray(b)) {
+                this.#data.button2.callbacks.add(a);
+                this.#data.button2.tags.push(...b);
+            }
+            else if (!(a === undefined && b === undefined)) throw new TypeError("渡された引数の型が適切ではありません");
         }
-        else if (typeof a === "function" && isStringArray(b)) {
-            this.#data.button2.callbacks.add(a);
-            this.#data.button2.tags.push(...b);
+        else {
+            throw new TypeError("第一引数はstring | RawMessage | ButtonInputである必要があります");
         }
-        else if (!(a === undefined && b === undefined)) throw new TypeError("渡された引数の型が適切ではありません");
 
         return this;
     }
@@ -1054,8 +1153,8 @@ export class MessageFormWrapper extends ServerFormWrapper {
             throw new TypeError("引数はプレイヤーである必要があります");
         }
 
-        if (typeof this.titleText !== "string") {
-            throw new TypeError("タイトル文字列として保存されている値がstringではありません: " + this.titleText);
+        if (typeof this.titleText !== "string" && typeof this.titleText !== "object") {
+            throw new TypeError("タイトル文字列として保存されている値がstring | RawMessageではありません: " + this.titleText);
         }
 
         const form = new MessageFormData()

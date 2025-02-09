@@ -2,7 +2,7 @@
 `@minecraft/server-ui`が提供するフォーム作成用APIをより扱いやすいものにしたライブラリです。
 
 ## 導入
-[Releases](https://github.com/Takenoko-II/ServerForm-Wrapper/releases/tag/v1.0.2)からダウンロードした.zipファイル内の`scripts/UI.js`と`scripts/UI.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
+[Releases](https://github.com/Takenoko-II/ServerForm-Wrapper/releases/tag/v1.0.3)からダウンロードした.zipファイル内の`scripts/UI.js`と`scripts/UI.d.ts`をアドオンの`scripts`フォルダ内に入れて使用してください。
 <br>双方を同一のフォルダ内に置くことを推奨します。
 
 ## 使用法
@@ -27,18 +27,21 @@ import { ActionFormWrapper } from "./UI";
 const form = new ActionFormWrapper()
 .title("フォームのタイトル")
 .body("本文1行目", "2行目", "3行目...")
-.button("ボタン1")
-.button("ボタン2", "textures/items/apple")
-.button("ボタン3", player => {
+.button("ボタン1") // ActionFormそのままに近い記法
+.button("ボタン2", "textures/items/apple", player => {
     // このボタンが押されたときの処理
 })
-.button("ボタン4", "textures/items/bread", player => {
-    // このボタンが押されたときの処理
+.button({ // こっちの書き方推奨
+    name: "ボタン3",
+    iconPath: "textures/items/bread", // 省略可
+    tags: ["foo"], // 名前以外でのボタンの識別方法として、'タグ'というものを設定できるようにしてあります, 省略可
+    on(player) { // 省略可
+        // このボタンが押されたときの処理
+    }
 })
-.button("ボタン5", ["foo"]) // 名前以外でのボタンの識別方法として、'タグ'というものを設定できるようにしてあります
-.onPush(button => button.tags.includes("foo"), event => {
+.onPush(button => button.tags.includes("foo"), event => { // なんでもボタンおされたとき発火します
     // "foo"のタグを持つボタンが押されたとき
-    event.player.sendMessage(event.button.name);
+    event.player.sendMessage(event.button.name); // ボタン3
 })
 .onCancel("UserClosed", event => {
     // UserClosedが原因でフォームが閉じられたとき
@@ -63,35 +66,39 @@ const form = new ModalFormWrapper()
 .toggle({
     id: "toggle", // IDを設定して後からこれを使って取得できます
     label: "とぐる",
-    defaultValue: false
+    defaultValue: false // 省略可
 })
 .slider({
     id: "slider",
-    label: "すらいだー",
+    label: { text: "すらいだー" }, // rawtext可
     range: { min: 0, max: 100 },
-    step: 1,
-    defaultValue: 0
+    step: 1, // 省略可
+    defaultValue: 0 // 省略可
 })
 .textField({
     id: "textField",
     label: "てきすとふぃーるど",
-    placeHolder: "ここに文字列を入力",
-    defaultValue: "foo"
+    placeHolder: { text: "ここに文字列を入力" }, // rawtext可
+    defaultValue: "foo" // 省略可
 })
 .dropdown({
     id: "dropdown",
     label: "どろっぷだうん",
-    list: ["a", "b", "c"],
-    defaultValueIndex: 0
+    list: [
+        { id: "a", text: "えー" },
+        { id: "b", text: "びー" },
+        { id: "c", rawtext: [{ translate: "item.apple.name" }, { text: "っておいしいよね" }] } // rawtext可
+    ],
+    defaultValueIndex: 0 // 省略可
 })
 .toggle("toggle2", "とぐるその２", true) // ModalFormDataそのままに近い書き方も使えます
 .submitButtonName("送信！！！！！")
 .onSubmit(event => {
     // 送信ボタンを押したとき
-    event.player.sendMessage(String(event.getToggle("toggle")));
-    event.player.sendMessage(String(event.getSlider("slider")));
-    event.player.sendMessage(event.getTextField("textField"));
-    event.player.sendMessage(event.getDropdown("dropdown")); // インデックスではなく文字列が返ります
+    event.player.sendMessage(String(event.getToggleInput("toggle")));
+    event.player.sendMessage(String(event.getSliderInput("slider")));
+    event.player.sendMessage(event.getTextFieldInput("textField"));
+    event.player.sendMessage(event.getDropdownInput("dropdown").value.id); // インデックスも配列中の値も返ります
 })
 .onCancel("UserClosed", event => {
     event.reopen();
@@ -116,8 +123,11 @@ const form = new MessageFormWrapper()
 .button1("ボタン1", player => {
     // このボタンが押されたときの処理
 }, ["bar"]) // 使いどころはさておき一応タグはここでも使えます
-.button2("ボタン2", player => {
-    // このボタンが押されたときの処理
+.button2({
+    name: "ボタン2",
+    on(player) {
+        // このボタンが押されたときの処理
+    }
 })
 .onPush(button => button.tags.includes("bar"), event => {
     // "bar"のタグを持つボタンが押されたとき
@@ -145,7 +155,7 @@ const actionForm = new ActionFormWrapper()
 .button("button1", "textures/items/apple", player => {
     const fooButtons = actionForm.buttons.getByPredicate(button => button.name.startsWith("foo")); // 名前が"foo"で始まるボタンをすべて取得
     player.sendMessage(fooButtons.length.toString()); // 2
-});
+})
 .button("foobar")
 .button("foobaz");
 
@@ -213,12 +223,11 @@ const form = new ModalFormWrapper()
 オーバーロードなど詳細な情報については.d.tsを参照してください。
 
 ## 動作を確認したバージョン
-- 1.21.0
+- 1.21.50
 
 ## ライセンス
-ServerForm-Wrapperは[MITライセンス](https://en.wikipedia.org/wiki/MIT_License)のもとでリリースされています。
+ServerForm-Wrapperは[MITライセンス](/LICENSE)のもとでリリースされています。
 
 ## 作成者
-- [GitHub](https://github.com/Takenoko-II)
 - [Twitter](https://twitter.com/Takenoko_4096)
 - Discord: takenoko_4096 | たけのこII#1119
