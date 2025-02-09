@@ -18,6 +18,11 @@ import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/serve
  * @typedef {import("./UI").ModalFormSlider} ModalFormSlider
  * @typedef {import("./UI").ModalFormTextField} ModalFormTextField
  * @typedef {import("./UI").ModalFormDropdown} ModalFormDropdown
+ * @typedef {import("./UI").ButtonInput} ButtonInput
+ * @typedef {import("./UI").ModalFormToggleInput} ModalFormToggleInput
+ * @typedef {import("./UI").ModalFormSliderInput} ModalFormSliderInput
+ * @typedef {import("./UI").ModalFormTextFieldInput} ModalFormTextFieldInput
+ * @typedef {import("./UI").ModalFormDropdownInput} ModalFormDropdownInput
  */
 
 /**
@@ -49,6 +54,18 @@ export class ServerFormElementPredicates {
             && (typeof value["iconPath"] === "string" || value["iconPath"] === undefined)
             && value["callbacks"] instanceof Set
             && isStringArray(value["tags"])
+    }
+
+    /**
+     * @param {unknown} value
+     * @returns {value is ButtonInput}
+     */
+    static isButtonInput(value) {
+        if (value === undefined || value === null) return false;
+        return typeof value["name"] === "string"
+            && (typeof value["iconPath"] === "string" || value["iconPath"] === undefined)
+            && (typeof value["onPush"] === "function" || value["onPush"] === undefined)
+            && (isStringArray(value["tags"]) || value["tags"] === undefined)
     }
 
     /**
@@ -101,6 +118,47 @@ export class ServerFormElementPredicates {
             && isStringArray(value["list"])
             && isNumber(value["defaultValueIndex"]);
     }
+
+    /**
+     * @param {unknown} value 
+     * @returns {value is ModalFormToggleInput}
+     */
+    static isToggleInput(value) {
+        return this.isModalFormElement(value)
+            && (typeof value["defaultValue"] === "boolean" || value["defaultValue"] === undefined);
+    }
+
+    /**
+     * @param {unknown} value 
+     * @returns {value is ModalFormSliderInput}
+     */
+    static isSliderInput(value) {
+        return this.isModalFormElement(value)
+            && isNumber(value["range"]?.min)
+            && isNumber(value["range"]?.max)
+            && (isNumber(value["step"]) || value["step"] === undefined)
+            && (isNumber(value["defaultValue"]) || value["defaultValue"] === undefined);
+    }
+
+    /**
+     * @param {unknown} value 
+     * @returns {value is ModalFormTextFieldInput}
+     */
+    static isTextFieldInput(value) {
+        return this.isModalFormElement(value)
+            && typeof value["placeHolder"] === "string"
+            && (typeof value["defaultValue"] === "string" || value["defaultValue"] === undefined);
+    }
+
+    /**
+     * @param {unknown} value 
+     * @returns {value is ModalFormDropdownInput}
+     */
+    static isDropdownInput(value) {
+        return this.isModalFormElement(value)
+            && isStringArray(value["list"])
+            && (isNumber(value["defaultValueIndex"]) || value["defaultValueIndex"] === undefined);
+    }
 }
 
 /**
@@ -123,7 +181,7 @@ function freezeKey(object, ...keys) {
     return object;
 }
 
-class ServerFormWrapper {
+export class ServerFormWrapper {
     /**
      * @param {symbol} key 
      */
@@ -273,7 +331,32 @@ export class ActionFormWrapper extends ServerFormWrapper {
     }
 
     button(name, a, b, c) {
-        if (typeof name !== "string") {
+        if (ServerFormElementPredicates.isButtonInput(name) && a === undefined && b === undefined && c === undefined) {
+            /**
+             * @type {Button}
+             */
+            const button = Object.defineProperties({}, {
+                tags: {
+                    writable: false,
+                    enumerable: true,
+                    configurable: false,
+                    value: name.tags
+                },
+                callbacks: {
+                    writable: false,
+                    enumerable: true,
+                    configurable: false,
+                    value: new Set()
+                }
+            });
+
+            if (typeof name.onPush === "function") {
+                button.callbacks.add(name.onPush);
+            }
+
+            this.#data.buttons.push(button);
+        }
+        else if (typeof name !== "string") {
             throw new TypeError("第一引数はstringである必要があります");
         }
 
@@ -475,7 +558,11 @@ export class ModalFormWrapper extends ServerFormWrapper {
     };
 
     toggle(id, label, defaultValue = false) {
-        if (ServerFormElementPredicates.isToggle(id) && label === undefined && defaultValue === false) {
+        if (ServerFormElementPredicates.isToggleInput(id) && label === undefined && defaultValue === false) {
+            if (id.defaultValue === undefined) {
+                id.defaultValue = defaultValue;
+            }
+
             const obj = Object.assign({ type: "toggle" }, id);
             this.#data.values.push(freezeKey(obj, "id", "type"));
             return this;
@@ -499,7 +586,15 @@ export class ModalFormWrapper extends ServerFormWrapper {
     }
 
     slider(id, label, range, step = 1, defaultValue = 0) {
-        if (ServerFormElementPredicates.isSlider(id) && label === undefined && range === undefined && step === 1 && defaultValue === 0) {
+        if (ServerFormElementPredicates.isSliderInput(id) && label === undefined && range === undefined && step === 1 && defaultValue === 0) {
+            if (id.defaultValue === undefined) {
+                id.defaultValue = defaultValue;
+            }
+
+            if (id.step === undefined) {
+                id.step = step;
+            }
+
             const obj = Object.assign({ type: "slider" }, id);
             this.#data.values.push(freezeKey(obj, "id", "type", "range"));
             return this;
@@ -532,7 +627,11 @@ export class ModalFormWrapper extends ServerFormWrapper {
     }
 
     dropdown(id, label, list, defaultValueIndex = 0) {
-        if (ServerFormElementPredicates.isDropdown(id) && label === undefined && list === undefined && defaultValueIndex === 0) {
+        if (ServerFormElementPredicates.isDropdownInput(id) && label === undefined && list === undefined && defaultValueIndex === 0) {
+            if (id.defaultValueIndex === undefined) {
+                id.defaultValueIndex = defaultValueIndex;
+            }
+
             const obj = Object.assign({ type: "dropdown" }, id);
             this.#data.values.push(freezeKey(obj, "id", "list"));
             return this;
@@ -566,6 +665,10 @@ export class ModalFormWrapper extends ServerFormWrapper {
 
     textField(id, label, placeHolder = "", defaultValue = "") {
         if (ServerFormElementPredicates.isTextField(id) && label === undefined && placeHolder === "" && defaultValue === "") {
+            if (id.defaultValue === undefined) {
+                id.defaultValue = defaultValue;
+            }
+
             const obj = Object.assign({ type: "textField" }, id);
             this.#data.values.push(freezeKey(obj, "id"));
             return this;
@@ -621,8 +724,11 @@ export class ModalFormWrapper extends ServerFormWrapper {
         }
 
         const form = new ModalFormData()
-        .title(this.titleText)
-        .submitButton(this.#data.submitButtonName);
+        .title(this.titleText);
+
+        if (this.#data.submitButtonName !== undefined) {
+            form.submitButton(this.#data.submitButtonName);
+        }
 
         for (const value of this.#data.values) {
             switch (value.type) {
@@ -711,19 +817,19 @@ export class ModalFormWrapper extends ServerFormWrapper {
             }
 
             const input = {
-                getToggle(id) {
+                getToggleInput(id) {
                     if (type(id) === "toggle") return value(id);
                 },
-                getSlider(id) {
+                getSliderInput(id) {
                     if (type(id) === "slider") return value(id);
                 },
-                getDropdown(id) {
+                getDropdownInput(id) {
                     if (type(id) === "dropdown") return value(id);
                 },
-                getTextField(id) {
+                getTextFieldInput(id) {
                     if (type(id) === "textField") return value(id);
                 },
-                getAll() {
+                getAllInputs() {
                     return response.formValues.map((formValue, index) => {
                         const value = that.#data.values[index];
                         return value.type === "dropdown" ? value.list[formValue] : formValue;

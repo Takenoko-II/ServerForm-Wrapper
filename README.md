@@ -216,7 +216,7 @@ const form = new ModalFormWrapper()
 - 1.21.0
 
 ## ライセンス
-ServerForm-Wrapperは[Mitライセンス](https://en.wikipedia.org/wiki/MIT_License)のもとでリリースされています。
+ServerForm-Wrapperは[MITライセンス](https://en.wikipedia.org/wiki/MIT_License)のもとでリリースされています。
 
 ## 作成者
 - [GitHub](https://github.com/Takenoko-II)

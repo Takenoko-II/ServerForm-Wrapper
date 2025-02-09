@@ -1,42 +1,37 @@
 import { world } from "@minecraft/server";
 
-import { ModalFormWrapper } from "./ServerForm-Wrapper";
+import { ModalFormWrapper } from "./UI";
 
 const modalForm = new ModalFormWrapper()
 .title("title")
 .toggle({
     id: "toggle",
-    label: "label",
-    defaultValue: false
+    label: "label"
 })
 .slider({
     id: "slider",
     label: "label",
-    range: { min: 0, max: 100 },
-    step: 1,
-    defaultValue: 0
+    range: { min: 0, max: 100 }
 })
 .textField({
     id: "textField",
     label: "label",
-    placeHolder: "placeHolder",
-    defaultValue: "default"
+    placeHolder: "placeHolder"
 })
 .dropdown({
     id: "dropdown",
     label: "label",
-    list: ["a", "b", "c"],
-    defaultValueIndex: 0
+    list: ["a", "b", "c"]
 })
 .onCancel("UserClosed", event => {
     event.reopen();
 })
 .submitButtonName("submit")
 .onSubmit(event => {
-    event.player.sendMessage(String(event.getToggle("toggle")));
-    event.player.sendMessage(String(event.getSlider("slider")));
-    event.player.sendMessage(event.getTextField("textField"));
-    event.player.sendMessage(event.getDropdown("dropdown"));
+    event.player.sendMessage(String(event.getToggleInput("toggle")));
+    event.player.sendMessage(String(event.getSliderInput("slider")));
+    event.player.sendMessage(event.getTextFieldInput("textField") ?? "");
+    event.player.sendMessage(event.getDropdownInput("dropdown") ?? "");
 });
 
 world.afterEvents.itemUse.subscribe(event => {
