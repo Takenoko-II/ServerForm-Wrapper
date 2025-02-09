@@ -53,7 +53,7 @@ new ModalFormWrapper()
     list: [
         { id: "a", text: "えー" },
         { id: "b", text: "びー" },
-        { id: "c", rawtext: [{ translate: "item.apple.name" }, { text: "っておいしいよね" }] } // rawtext可
+        { id: "c", text: { rawtext: [{ translate: "item.apple.name" }, { text: "っておいしいよね" }] } } // rawtext可
     ],
     defaultValueIndex: 0 // 省略可
 })
@@ -100,7 +100,7 @@ const actionForm = new ActionFormWrapper()
 .title("title")
 .body("body")
 .button("button1", "textures/items/apple", player => {
-    const fooButtons = actionForm2.buttons.getByPredicate(button => button.name.startsWith("foo")); // 名前が"foo"で始まるボタンをすべて取得
+    const fooButtons = actionForm.buttons.getByPredicate(button => typeof button.name === "string" && button.name.startsWith("foo")); // 名前が"foo"で始まるボタンをすべて取得
     player.sendMessage(fooButtons.length.toString()); // 2
 })
 .button("foobar")
@@ -123,10 +123,10 @@ const modalForm = new ModalFormWrapper()
     defaultValue: 15
 })
 .onSubmit(event => {
-    const sliderHoge = modalForm2.elements.getSlider("hoge"); // idが"hoge"のスライダーに関する情報を取得
-    const sliderFuga = modalForm2.elements.getSlider("fuga"); // idが"fuga"のスライダーに関する情報を取得
-    const hoge = event.getSlider("hoge"); // 入力された値
-    const fuga = event.getSlider("fuga");
+    const sliderHoge = modalForm.elements.getSlider("hoge"); // idが"hoge"のスライダーに関する情報を取得
+    const sliderFuga = modalForm.elements.getSlider("fuga"); // idが"fuga"のスライダーに関する情報を取得
+    const hoge = event.getSliderInput("hoge"); // 入力された値
+    const fuga = event.getSliderInput("fuga");
 
     event.player.sendMessage(`${sliderHoge.label}は${hoge}です`); // スライダーのラベルを取得
     event.player.sendMessage(`${sliderFuga.label}は${fuga}です`);
@@ -138,7 +138,7 @@ const messageForm = new MessageFormWrapper()
 .button1("foo")
 .button2("bar")
 .onPush(() => true, event => {
-    const anotherButton = messageForm2.buttons.getByPredicate(button => button.name !== event.button.name);
+    const anotherButton = messageForm.buttons.getByPredicate(button => button.name !== event.button.name);
     event.player.sendMessage(anotherButton.name); // 押されていないほうのボタンの名前を取得
 });
 
