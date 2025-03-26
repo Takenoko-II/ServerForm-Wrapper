@@ -5,7 +5,7 @@
         "name": "UI",
         "uuid": "eb5f1358-8475-4ad7-9242-871309eb1677",
         "version": [ 0, 0, 0 ],
-        "min_engine_version": [ 1, 21, 50 ]
+        "min_engine_version": [ 1, 21, 70 ]
     },
     "modules": [
         {
@@ -26,11 +26,11 @@
     "dependencies": [
         {
             "module_name": "@minecraft/server",
-            "version": "1.17.0-beta"
+            "version": "2.0.0-beta"
         },
         {
             "module_name": "@minecraft/server-ui",
-            "version": "1.4.0-beta"
+            "version": "2.0.0-beta"
         }
     ]
 }
