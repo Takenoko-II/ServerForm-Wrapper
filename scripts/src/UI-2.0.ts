@@ -4,10 +4,9 @@
  */
 
 import { NumberRange } from "@minecraft/common";
-
 import { Player, RawMessage, system } from "@minecraft/server";
+import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
 import { sentry } from "./TypeSentry";
-import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 
 const numberRangeType = sentry.objectOf({
     min: sentry.number,
@@ -585,7 +584,7 @@ export interface ModalFormTextField extends ModalFormElement {
 export interface DropdownOption {
     readonly id: string;
 
-    readonly text: string | RawMessage;
+    text: string | RawMessage;
 }
 
 /**
@@ -688,7 +687,7 @@ export interface ModalFormDropdownInput extends ModalFormElementInput {
 }
 
 export interface SubmitButton {
-    readonly name: string | RawMessage;
+    name: string | RawMessage;
 
     on(event: ModalFormSubmitEvent): void;
 }
@@ -702,7 +701,9 @@ export interface SubmitButtonInput {
     on?(event: ModalFormSubmitEvent): void;
 }
 
-export interface DecorationDefinitions {
+export interface Definitions {}
+
+export interface DecorationDefinitions extends Definitions {
     /**
      * 特定のIDのラベルを取得します。
      */
@@ -728,6 +729,11 @@ export interface ActionFormElementDefinitions extends DecorationDefinitions {
      * @param predicate ボタンの条件
      */
     getButtonByPredicate(predicate: (button: ActionButton) => boolean): ActionButton[];
+
+    /**
+     * 全ての要素を含む配列を取得します。
+     */
+    getAll(): (ActionButton | Header | Label | Divider)[];
 }
 
 /**
@@ -759,7 +765,7 @@ export interface ModalFormElementDefinitions extends DecorationDefinitions {
     getTextField(id: string): ModalFormTextField | undefined;
 
     /**
-     * 送信ボタンの名前を取得します。
+     * 送信ボタンを取得します。
      */
     getSubmitButton(): SubmitButton;
 
@@ -768,23 +774,31 @@ export interface ModalFormElementDefinitions extends DecorationDefinitions {
      * @param predicate 要素の条件
      */
     getModalFormElementByPredicate<T extends ModalFormElement>(predicate: (element: ModalFormElement) => element is T): T[];
+
+    /**
+     * 全ての要素を含む配列を取得します。
+     */
+    getAll(): (ModalFormToggle | ModalFormSlider | ModalFormDropdown | ModalFormTextField | Header | Label | Divider)[];
 }
 
 /**
  * ボタンの定義情報
  */
-export interface MessageFormButtonDefinitions {
+export interface MessageFormElementDefinitions extends Definitions {
     /**
-     * 条件に一致するボタンを取得します。
-     * @param predicate ボタンの条件
+     * 二つのボタンを取得します。
      */
-    getByPredicate(predicate: (button: MessageButton) => boolean): MessageButton | undefined;
+    getButtons(): [MessageButton, MessageButton];
+}
+
+export interface DefinitionEnumerable<T extends Definitions> {
+    readonly elements: T;
 }
 
 /**
  * `ActionFormData`をより直感的かつ簡潔に扱うことを目的としたクラス
  */
-export class ActionFormWrapper extends ServerFormWrapper implements ActionPushable, Decoratable {
+export class ActionFormWrapper extends ServerFormWrapper implements ActionPushable, Decoratable, DefinitionEnumerable<ActionFormElementDefinitions> {
     private bodyText: string | RawMessage | undefined = undefined;
 
     private readonly values: (ActionButton | Label | Header | Divider)[] = [];
@@ -796,6 +810,33 @@ export class ActionFormWrapper extends ServerFormWrapper implements ActionPushab
      */
     public constructor() {
         super();
+        Object.defineProperty(this, "elements", {
+            get: (): ActionFormElementDefinitions => {
+                const that = this;
+                return {
+                    getButtonByPredicate(predicate) {
+                        return that.values
+                            .filter(ServerFormElementPredicates.isActionButton)
+                            .filter(predicate);
+                    },
+                    getLabel(id) {
+                        return that.values.filter(ServerFormElementPredicates.isLabel)
+                            .find(label => label.id === id);
+                    },
+                    getHeader(id) {
+                        return that.values.filter(ServerFormElementPredicates.isHeader)
+                            .find(header => header.id === id);
+                    },
+                    getDivider(id) {
+                        return that.values.filter(ServerFormElementPredicates.isDivider)
+                            .find(divider => divider.id === id);
+                    },
+                    getAll() {
+                        return that.values;
+                    },
+                };
+            }
+        });
     }
 
     /**
@@ -878,28 +919,7 @@ export class ActionFormWrapper extends ServerFormWrapper implements ActionPushab
     /**
      * フォームの要素の定義情報
      */
-    public get elements(): ActionFormElementDefinitions {
-        const that = this;
-        return {
-            getButtonByPredicate(predicate) {
-                return that.values
-                    .filter(ServerFormElementPredicates.isActionButton)
-                    .filter(predicate);
-            },
-            getLabel(id) {
-                return that.values.filter(ServerFormElementPredicates.isLabel)
-                    .find(label => label.id === id);
-            },
-            getHeader(id) {
-                return that.values.filter(ServerFormElementPredicates.isHeader)
-                    .find(header => header.id === id);
-            },
-            getDivider(id) {
-                return that.values.filter(ServerFormElementPredicates.isDivider)
-                    .find(divider => divider.id === id);
-            }
-        };
-    }
+    public readonly elements: ActionFormElementDefinitions;
 
     public override open(player: Player): void {
         const form = new ActionFormData()
@@ -988,7 +1008,7 @@ export class ActionFormWrapper extends ServerFormWrapper implements ActionPushab
 /**
  * `ModalFormData`をより直感的かつ簡潔に扱うことを目的としたクラス
  */
-export class ModalFormWrapper extends ServerFormWrapper implements Submittable, Decoratable {
+export class ModalFormWrapper extends ServerFormWrapper implements Submittable, Decoratable, DefinitionEnumerable<ModalFormElementDefinitions> {
     private readonly values: (ModalFormToggle | ModalFormSlider | ModalFormDropdown | ModalFormTextField | Label | Header | Divider)[] = [];
 
     private submitButtonInfo: SubmitButton = {
@@ -1001,6 +1021,67 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
      */
     public constructor() {
         super();
+        Object.defineProperty(this, "elements", {
+            get: (): ModalFormElementDefinitions => {
+                const that = this;
+        
+                function getElement(id: string): ModalFormElement | undefined {    
+                    return that.values
+                        .filter(ServerFormElementPredicates.isModalFormElement)
+                        .find(value => (value as ModalFormElement).id === id) as (ModalFormElement | undefined);
+                }
+        
+                return {
+                    getToggle(id) {
+                        const element = getElement(id);
+                        return (ServerFormElementPredicates.isToggle(element)) ? element : undefined;
+                    },
+                    getSlider(id) {
+                        const element = getElement(id);
+                        return (ServerFormElementPredicates.isSlider(element)) ? element  : undefined;
+                    },
+                    getTextField(id) {
+                        const element = getElement(id);
+                        return (ServerFormElementPredicates.isTextField(element)) ? element : undefined;
+                    },
+                    getDropdown(id) {
+                        const element = getElement(id);
+                        return (ServerFormElementPredicates.isDropdown(element)) ? element : undefined;
+                    },
+                    getSubmitButton() {
+                        return that.submitButtonInfo;
+                    },
+                    getModalFormElementByPredicate<T extends ModalFormElement>(predicate: (element: ModalFormElement) => element is T) {
+                        const vals: T[] = [];
+                        for (const val of that.values.filter(ServerFormElementPredicates.isModalFormElement)) {
+                            const v = val as ModalFormElement;
+                            if (predicate(v)) {
+                                vals.push(v);
+                            }
+                        }
+                        return vals;
+                    },
+                    getLabel(id) {
+                        return that.values
+                            .filter(ServerFormElementPredicates.isLabel)
+                            .find(label => label.id === id);
+                    },
+                    getHeader(id) {
+                        return that.values
+                            .filter(ServerFormElementPredicates.isHeader)
+                            .find(header => header.id === id);
+                    },
+                    getDivider(id) {
+                        return that.values
+                            .filter(ServerFormElementPredicates.isDivider)
+                            .find(divider => divider.id === id);
+                    },
+                    getAll() {
+                        return that.values;
+                    }
+                };
+            }
+        })
     }
 
     /**
@@ -1108,62 +1189,7 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
     /**
      * フォームの要素の定義情報
      */
-    public get elements(): ModalFormElementDefinitions {
-        const that = this;
-
-        function getElement(id: string): ModalFormElement | undefined {    
-            return that.values
-                .filter(ServerFormElementPredicates.isModalFormElement)
-                .find(value => (value as ModalFormElement).id === id) as (ModalFormElement | undefined);
-        }
-
-        return {
-            getToggle(id) {
-                const element = getElement(id);
-                return (ServerFormElementPredicates.isToggle(element)) ? { ...element } : undefined;
-            },
-            getSlider(id) {
-                const element = getElement(id);
-                return (ServerFormElementPredicates.isSlider(element)) ? { ...element } : undefined;
-            },
-            getTextField(id) {
-                const element = getElement(id);
-                return (ServerFormElementPredicates.isTextField(element)) ? { ...element } : undefined;
-            },
-            getDropdown(id) {
-                const element = getElement(id);
-                return (ServerFormElementPredicates.isDropdown(element)) ? { ...element } : undefined;
-            },
-            getSubmitButton() {
-                return { ...that.submitButtonInfo };
-            },
-            getModalFormElementByPredicate<T extends ModalFormElement>(predicate: (element: ModalFormElement) => element is T) {
-                const vals: T[] = [];
-                for (const val of that.values.filter(ServerFormElementPredicates.isModalFormElement)) {
-                    const v = val as ModalFormElement;
-                    if (predicate(v)) {
-                        vals.push(v);
-                    }
-                }
-                return vals;
-            },
-            getLabel(id) {
-                return that.values
-                    .filter(ServerFormElementPredicates.isLabel)
-                    .find(label => label.id === id);
-            },
-            getHeader(id) {
-                return that.values
-                    .filter(ServerFormElementPredicates.isHeader)
-                    .find(header => header.id === id);
-            },
-            getDivider(id) {
-                return that.values
-                    .filter(ServerFormElementPredicates.isDivider)
-                    .find(divider => divider.id === id);
-            }
-        };
-    }
+    public readonly elements: ModalFormElementDefinitions;
 
     public open(player: Player): void {        
         const form = new ModalFormData()
@@ -1289,7 +1315,7 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
 /**
  * `MessageFormData`をより直感的かつ簡潔に扱うことを目的としたクラス
  */
-export class MessageFormWrapper extends ServerFormWrapper implements MessagePushable {
+export class MessageFormWrapper extends ServerFormWrapper implements MessagePushable, DefinitionEnumerable<MessageFormElementDefinitions> {
     private bodyText: string | RawMessage | undefined = undefined;
 
     private readonly buttonPair: [MessageButton, MessageButton] = [
@@ -1304,6 +1330,16 @@ export class MessageFormWrapper extends ServerFormWrapper implements MessagePush
      */
     public constructor() {
         super();
+        Object.defineProperty(this, "elements", {
+            get: (): MessageFormElementDefinitions => {
+                const that = this;
+                return {
+                    getButtons() {
+                        return that.buttonPair;
+                    }
+                };
+            }
+        });
     }
 
     /**
@@ -1365,17 +1401,7 @@ export class MessageFormWrapper extends ServerFormWrapper implements MessagePush
     /**
      * フォームのボタンの定義情報
      */
-    public get buttons(): MessageFormButtonDefinitions {
-        const that = this;
-
-        return {
-            getByPredicate(predicate) {
-                const button = that.buttonPair.find(predicate);
-                if (button === undefined) return undefined;
-                else return { ...button };
-            }
-        };
-    }
+    public readonly elements: MessageFormElementDefinitions;
 
     public open(player: Player): void {        
         const form = new MessageFormData()
