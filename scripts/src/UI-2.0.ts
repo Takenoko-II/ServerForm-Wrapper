@@ -5,7 +5,7 @@
 
 import { NumberRange } from "@minecraft/common";
 import { Player, RawMessage, system } from "@minecraft/server";
-import { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";
+import { ActionFormData, ModalFormData, MessageFormData, FormCancelationReason } from "@minecraft/server-ui";
 import { sentry } from "./TypeSentry";
 
 const numberRangeType = sentry.objectOf({
@@ -211,7 +211,7 @@ export abstract class ServerFormWrapper {
      * @returns `this`
      */
     public onCancel(value: keyof typeof ServerFormCancelationCause, callbackFn: (event: ServerFormCancelEvent) => void): this {
-        this.cancelationCallbacks.get(value).add(callbackFn);
+        this.cancelationCallbacks.get(value)!.add(callbackFn);
         return this;
     }
 
@@ -953,7 +953,7 @@ export class ActionFormWrapper extends ServerFormWrapper implements ActionPushab
 
                 const cancelEvent: ServerFormCancelEvent = {
                     player,
-                    reason: response.cancelationReason,
+                    reason: response.cancelationReason as FormCancelationReason,
                     reopen() {
                         system.run(() => {
                             that.open(player);
@@ -961,17 +961,17 @@ export class ActionFormWrapper extends ServerFormWrapper implements ActionPushab
                     }
                 };
 
-                this.cancelationCallbacks.get("Any").forEach(callbackFn => {
+                this.cancelationCallbacks.get("Any")!.forEach(callbackFn => {
                     callbackFn(cancelEvent);
                 });
 
                 if (response.cancelationReason === "UserBusy") {
-                    this.cancelationCallbacks.get("UserBusy").forEach(callbackFn => {
+                    this.cancelationCallbacks.get("UserBusy")!.forEach(callbackFn => {
                         callbackFn(cancelEvent);
                     });
                 }
                 else if (response.cancelationReason === "UserClosed") {
-                    this.cancelationCallbacks.get("UserClosed").forEach(callbackFn => {
+                    this.cancelationCallbacks.get("UserClosed")!.forEach(callbackFn => {
                         callbackFn(cancelEvent);
                     });
                 }
@@ -1228,7 +1228,7 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
                 const that = this;
                 const cancelEvent: ServerFormCancelEvent = {
                     player,
-                    reason: response.cancelationReason,
+                    reason: response.cancelationReason as FormCancelationReason,
                     reopen() {
                         system.run(() => {
                             that.open(player);
@@ -1236,17 +1236,17 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
                     }
                 };
 
-                this.cancelationCallbacks.get("Any").forEach(callbackFn => {
+                this.cancelationCallbacks.get("Any")!.forEach(callbackFn => {
                     callbackFn(cancelEvent);
                 });
 
                 if (response.cancelationReason === "UserBusy") {
-                    this.cancelationCallbacks.get("UserBusy").forEach(callbackFn => {
+                    this.cancelationCallbacks.get("UserBusy")!.forEach(callbackFn => {
                         callbackFn(cancelEvent);
                     });
                 }
                 else if (response.cancelationReason === "UserClosed") {
-                    this.cancelationCallbacks.get("UserClosed").forEach(callbackFn => {
+                    this.cancelationCallbacks.get("UserClosed")!.forEach(callbackFn => {
                         callbackFn(cancelEvent);
                     });
                 }
@@ -1257,26 +1257,30 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
             const that = this;
             const elements = that.values.filter(ServerFormElementPredicates.isModalFormElement) as ModalFormElement[];
 
-            function getMatchingElementIndex(id: string, predicate: (element: ModalFormElement) => Boolean): number | undefined {
+            function getMatchingElementIndex(id: string, predicate: (element: ModalFormElement) => Boolean): number {
                 const index = that.values.findIndex(value => value.id === id);
-                if (index === -1) return undefined;
+                if (index === -1) {
+                    throw new ServerFormError("指定されたIDの要素が見つかりませんでした");
+                }
                 else if (predicate(elements[index])) return index;
-                else return undefined;
+                else {
+                    throw new ServerFormError("指定されたIDの要素の型が正しくありません");
+                }
             }
 
             const submitEvent: ModalFormSubmitEvent = {
                 player,
                 getToggleInput(id) {
                     const index = getMatchingElementIndex(id, ServerFormElementPredicates.isToggle);
-                    return response.formValues[index] as boolean;
+                    return response.formValues![index] as boolean;
                 },
                 getSliderInput(id) {
                     const index = getMatchingElementIndex(id, ServerFormElementPredicates.isSlider);
-                    return response.formValues[index] as number;
+                    return response.formValues![index] as number;
                 },
                 getDropdownInput(id) {
                     const index = getMatchingElementIndex(id, ServerFormElementPredicates.isDropdown);
-                    const optionIndex = response.formValues[index] as number;
+                    const optionIndex = response.formValues![index] as number;
                     return {
                         index: optionIndex,
                         value: (elements[index] as ModalFormDropdown).list[optionIndex]
@@ -1284,10 +1288,10 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
                 },
                 getTextFieldInput(id) {
                     const index = getMatchingElementIndex(id, ServerFormElementPredicates.isTextField);
-                    return response.formValues[index] as string;
+                    return response.formValues![index] as string;
                 },
                 getAllInputs() {
-                    return response.formValues.map((formValue, index) => {
+                    return response.formValues!.map((formValue, index) => {
                         const value = elements[index];
                         return ServerFormElementPredicates.isDropdown(value)
                             ? { index: formValue as number, value: value.list[formValue as number] }
@@ -1403,7 +1407,11 @@ export class MessageFormWrapper extends ServerFormWrapper implements MessagePush
      */
     public readonly elements: MessageFormElementDefinitions;
 
-    public open(player: Player): void {        
+    public open(player: Player): void {    
+        if (this.bodyText === undefined) {
+            throw new ServerFormError("bodyが設定されていません");
+        }
+
         const form = new MessageFormData()
             .title(this.titleText)
             .body(this.bodyText)
@@ -1415,7 +1423,7 @@ export class MessageFormWrapper extends ServerFormWrapper implements MessagePush
                 const that = this;
                 const cancelEvent: ServerFormCancelEvent = {
                     player,
-                    reason: response.cancelationReason,
+                    reason: response.cancelationReason as FormCancelationReason,
                     reopen() {
                         system.run(() => {
                             that.open(player);
@@ -1423,17 +1431,17 @@ export class MessageFormWrapper extends ServerFormWrapper implements MessagePush
                     }
                 };
 
-                this.cancelationCallbacks.get("Any").forEach(callbackFn => {
+                this.cancelationCallbacks.get("Any")!.forEach(callbackFn => {
                     callbackFn(cancelEvent);
                 });
 
                 if (response.cancelationReason === "UserBusy") {
-                    this.cancelationCallbacks.get("UserBusy").forEach(callbackFn => {
+                    this.cancelationCallbacks.get("UserBusy")!.forEach(callbackFn => {
                         callbackFn(cancelEvent);
                     });
                 }
                 else if (response.cancelationReason === "UserClosed") {
-                    this.cancelationCallbacks.get("UserClosed").forEach(callbackFn => {
+                    this.cancelationCallbacks.get("UserClosed")!.forEach(callbackFn => {
                         callbackFn(cancelEvent);
                     });
                 }

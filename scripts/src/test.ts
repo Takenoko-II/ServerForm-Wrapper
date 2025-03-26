@@ -1,5 +1,6 @@
 import { world } from "@minecraft/server";
 import { ActionFormWrapper, ModalFormWrapper, MessageFormWrapper, ServerFormElementPredicates } from "./UI-2.0";
+import { sentry } from "./TypeSentry";
 
 world.afterEvents.itemUse.subscribe(({ source, itemStack:{ type: { id } } }) => {
     if (id !== "minecraft:stick") return;
