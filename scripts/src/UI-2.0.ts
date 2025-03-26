@@ -22,8 +22,8 @@ const dropdownOptionType = sentry.objectOf({
  * このライブラリが投げる例外のクラス
  */
 export class ServerFormError extends TypeError {
-    public constructor(public readonly cause: unknown) {
-        super("Unhandled Promise Rejection");
+    public constructor(public readonly cause: Error) {
+        super("Unhandled Promise Rejection: " + cause.message);
     }
 }
 
@@ -59,7 +59,7 @@ export class ServerFormElementPredicates {
         return sentry.objectOf({
             name: sentry.unionOf(sentry.string, sentry.objectOf({})),
             iconPath: sentry.optionalOf(sentry.string),
-            callbacks: sentry.setOf(sentry.string),
+            callbacks: sentry.setOf(sentry.function),
             tags: sentry.arrayOf(sentry.string),
             type: sentry.string
         }).test(value) && value.type === ElementType.ACTION_BUTTON
@@ -82,7 +82,7 @@ export class ServerFormElementPredicates {
      * @returns `value`が`ModalFormToggle`であれば真
      */
     public static isToggle(value: unknown): value is ModalFormToggle {
-        return this.isModalFormElement(value)
+        return ServerFormElementPredicates.isModalFormElement(value)
             && sentry.objectOf({
                 defaultValue: sentry.boolean
             }).test(value)
@@ -93,7 +93,7 @@ export class ServerFormElementPredicates {
      * @returns `value`が`ModalFormSlider`であれば真
      */
     public static isSlider(value: unknown): value is ModalFormSlider {
-        return this.isModalFormElement(value)
+        return ServerFormElementPredicates.isModalFormElement(value)
             && sentry.objectOf({
                 range: numberRangeType,
                 step: sentry.number,
@@ -106,7 +106,7 @@ export class ServerFormElementPredicates {
      * @returns `value`が`ModalFormDropdown`であれば真
      */
     public static isDropdown(value: unknown): value is ModalFormDropdown {
-        return this.isModalFormElement(value)
+        return ServerFormElementPredicates.isModalFormElement(value)
             && sentry.objectOf({
                 list: sentry.arrayOf(dropdownOptionType),
                 defaultValueIndex: sentry.int
@@ -118,7 +118,7 @@ export class ServerFormElementPredicates {
      * @returns `value`が`ModalFormTextField`であれば真
      */
     public static isTextField(value: unknown): value is ModalFormTextField {
-        return this.isModalFormElement(value)
+        return ServerFormElementPredicates.isModalFormElement(value)
             && sentry.objectOf({
                 placeHolder: sentry.unionOf(sentry.string, sentry.objectOf({})),
                 defaultValue: sentry.string
@@ -132,7 +132,7 @@ export class ServerFormElementPredicates {
     public static isMessageButton(value: unknown): value is MessageButton {
         return sentry.objectOf({
             name: sentry.unionOf(sentry.string, sentry.objectOf({})),
-            callbacks: sentry.setOf(sentry.string),
+            callbacks: sentry.setOf(sentry.function),
             type: sentry.string
         }).test(value) && value.type === ElementType.MESSAGE_BUTTON
     }
@@ -943,7 +943,7 @@ export class ActionFormWrapper extends ServerFormWrapper implements ActionPushab
                 form.divider();
             }
             else {
-                throw new ServerFormError("無効な要素の型です");
+                throw new ServerFormError(new Error("無効な要素の型です: " + JSON.stringify(value)));
             }
         }
 
@@ -1219,7 +1219,7 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
                 form.divider();
             }
             else {
-               throw new ServerFormError("無効なModalForm要素です");
+               throw new ServerFormError(new Error("無効なModalForm要素です"));
             }
         }
 
@@ -1257,14 +1257,14 @@ export class ModalFormWrapper extends ServerFormWrapper implements Submittable, 
             const that = this;
             const elements = that.values.filter(ServerFormElementPredicates.isModalFormElement) as ModalFormElement[];
 
-            function getMatchingElementIndex(id: string, predicate: (element: ModalFormElement) => Boolean): number {
+            function getMatchingElementIndex(id: string, predicate: (element: ModalFormElement) => boolean): number {
                 const index = that.values.findIndex(value => value.id === id);
                 if (index === -1) {
-                    throw new ServerFormError("指定されたIDの要素が見つかりませんでした");
+                    throw new ServerFormError(new Error("指定されたIDの要素が見つかりませんでした"));
                 }
                 else if (predicate(elements[index])) return index;
                 else {
-                    throw new ServerFormError("指定されたIDの要素の型が正しくありません");
+                    throw new ServerFormError(new Error("指定されたIDの要素の型が正しくありません"));
                 }
             }
 
@@ -1409,7 +1409,7 @@ export class MessageFormWrapper extends ServerFormWrapper implements MessagePush
 
     public open(player: Player): void {    
         if (this.bodyText === undefined) {
-            throw new ServerFormError("bodyが設定されていません");
+            throw new ServerFormError(new Error("bodyが設定されていません"));
         }
 
         const form = new MessageFormData()
