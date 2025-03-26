@@ -299,7 +299,7 @@ export class ServerFormWrapper {
     /**
      * @param {(event: ServerFormCatchErrorEvent) => void} callbackFn
      */
-    catch(callbackFn) {
+    onCatch(callbackFn) {
         if (typeof callbackFn !== "function") {
             throw new TypeError("第二引数は関数である必要があります");
         }

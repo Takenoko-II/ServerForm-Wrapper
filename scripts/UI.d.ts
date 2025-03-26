@@ -104,7 +104,7 @@ export abstract class ServerFormWrapper<T extends ServerFormWrapper<T>> {
      * @param callbackFn コールバック関数
      * @returns `this`
      */
-    public catch(callbackFn: (event: ServerFormCatchErrorEvent) => void): T;
+    public onCatch(callbackFn: (event: ServerFormCatchErrorEvent) => void): T;
 
     /**
      * フォームを表示します。
