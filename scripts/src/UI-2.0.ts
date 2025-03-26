@@ -109,7 +109,7 @@ export class ServerFormElementPredicates {
         return this.isModalFormElement(value)
             && sentry.objectOf({
                 list: sentry.arrayOf(dropdownOptionType),
-                defaultValueIndex: sentry.number.int
+                defaultValueIndex: sentry.int
             }).test(value)
     }
 
